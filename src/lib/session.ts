@@ -25,14 +25,19 @@ export async function getOrCreateSession(): Promise<UserSession> {
   if (sessionCookie?.value) {
     try {
       const session = JSON.parse(sessionCookie.value) as UserSession;
-      return session;
+      // [object Promise] 자가 치료(Self-healing) 로직
+      if (session.name && session.name.includes('[object Promise]')) {
+        console.warn('Detected malformed session name, regenerating...');
+      } else {
+        return session;
+      }
     } catch (e) {
       console.error('Failed to parse session cookie, generating new one:', e);
     }
   }
 
   // 세션이 없거나 파싱 오류 시 새 세션 생성
-  const nextNum = getNextVisitorNumber();
+  const nextNum = await getNextVisitorNumber();
   const newSession: UserSession = {
     id: generateUUID(),
     name: `${nextNum}번째 고해자`,
