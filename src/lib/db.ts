@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
-// DB 파일 경로 지정
-const DB_DIR = path.join(process.cwd(), 'data');
+// Vercel 서버리스 환경(Read-Only)인 경우 쓰기 권한이 허용된 /tmp 디렉토리 사용
+const isVercel = !!process.env.VERCEL;
+const DB_DIR = isVercel ? '/tmp' : path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'db.json');
 
 export interface Confession {
