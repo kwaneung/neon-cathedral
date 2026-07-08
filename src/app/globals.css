@@ -1,26 +1,99 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #050507;
+  --foreground: #e4e4e7;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans), sans-serif;
+  --font-serif: var(--font-serif), serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.15; filter: blur(40px); }
+  50% { opacity: 0.3; filter: blur(60px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow-pulse 8s ease-in-out infinite;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), sans-serif;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(5, 5, 7, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(63, 63, 70, 0.4);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(82, 82, 91, 0.6);
+}
+
+/* Stained Glass Polygon Clips (Dribbble Aesthetic) */
+.glass-clip-1 {
+  clip-path: polygon(5% 5%, 95% 0%, 90% 85%, 10% 95%);
+}
+.glass-clip-2 {
+  clip-path: polygon(0% 10%, 100% 0%, 85% 90%, 15% 100%);
+}
+.glass-clip-3 {
+  clip-path: polygon(10% 0%, 90% 15%, 100% 80%, 5% 90%);
+}
+.glass-clip-4 {
+  clip-path: polygon(0% 0%, 85% 20%, 95% 95%, 15% 85%);
+}
+.glass-clip-5 {
+  clip-path: polygon(15% 10%, 95% 5%, 80% 95%, 0% 85%);
+}
+.glass-clip-6 {
+  clip-path: polygon(5% 15%, 90% 0%, 100% 90%, 10% 100%);
+}
+
+/* Custom Backdrop & Shadow Glows */
+.neon-glow-cyan {
+  box-shadow: 0 0 30px rgba(6, 182, 212, 0.15);
+}
+.neon-glow-magenta {
+  box-shadow: 0 0 30px rgba(236, 72, 153, 0.15);
+}
+.neon-glow-amber {
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.15);
+}
+
+/* Shimmer animation for card borders */
+@keyframes border-shimmer {
+  0% { border-color: rgba(255, 255, 255, 0.05); }
+  50% { border-color: rgba(245, 158, 11, 0.2); }
+  100% { border-color: rgba(255, 255, 255, 0.05); }
+}
+
+.border-shimmering {
+  animation: border-shimmer 4s ease-in-out infinite;
+}
+
+
