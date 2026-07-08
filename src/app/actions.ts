@@ -14,6 +14,7 @@ import {
 import { generateLetterContent } from '@/lib/letters';
 import { updateTag } from 'next/cache';
 import { supabase } from '@/lib/supabase';
+import { randomUUID } from 'crypto';
 
 // 1. 고해 작성 및 등록 (답장 생성 포함)
 export async function submitConfessionAction(
@@ -29,7 +30,7 @@ export async function submitConfessionAction(
 
   try {
     const session = await getOrCreateSession();
-    const id = Math.random().toString(36).substring(2, 15);
+    const id = randomUUID();
     const createdAt = new Date();
     
     // 24시간 뒤 만료
@@ -53,7 +54,7 @@ export async function submitConfessionAction(
 
     // 답장 등록 (await 추가)
     await addReply({
-      id: Math.random().toString(36).substring(2, 15),
+      id: randomUUID(),
       confessionId: id,
       recipientId: session.id,
       tone,
