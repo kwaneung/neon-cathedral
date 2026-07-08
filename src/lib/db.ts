@@ -1,10 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-
-// Vercel 서버리스 환경(Read-Only)인 경우 쓰기 권한이 허용된 /tmp 디렉토리 사용
-const isVercel = !!process.env.VERCEL;
-const DB_DIR = isVercel ? '/tmp' : path.join(process.cwd(), 'data');
-const DB_FILE = path.join(DB_DIR, 'db.json');
+import { supabase } from './supabase';
 
 export interface Confession {
   id: string;
@@ -29,126 +23,134 @@ export interface Reply {
   isRead: boolean;
 }
 
-interface DatabaseSchema {
-  visitorCounter: number;
-  confessions: Confession[];
-  replies: Reply[];
-}
+export const GLASS_THRESHOLD = 5;
 
-const DEFAULT_DB: DatabaseSchema = {
-  visitorCounter: 0,
-  confessions: [],
-  replies: [],
-};
-
-// DB 초기화 함수
-function initDb() {
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
+// 1. 다음 익명 식별자 번호 발급 (RPC 호출)
+export async function getNextVisitorNumber(): Promise<number> {
+  const { data, error } = await supabase.rpc('increment_visitor');
+  if (error) {
+    console.error('Failed to increment visitor counter:', error);
+    // 폴백: 임의의 큰 수
+    return Math.floor(Math.random() * 1000) + 1;
   }
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(DEFAULT_DB, null, 2), 'utf-8');
-  }
+  return data as number;
 }
 
-// DB 읽기
-export function readDb(): DatabaseSchema {
-  initDb();
-  try {
-    const data = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(data) as DatabaseSchema;
-  } catch (error) {
-    console.error('Error reading database file, returning default:', error);
-    return DEFAULT_DB;
-  }
-}
-
-// DB 쓰기
-export function writeDb(data: DatabaseSchema): void {
-  initDb();
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (error) {
-    console.error('Error writing to database file:', error);
-  }
-}
-
-// 다음 익명 식별자 번호 발급
-export function getNextVisitorNumber(): number {
-  const db = readDb();
-  db.visitorCounter += 1;
-  writeDb(db);
-  return db.visitorCounter;
-}
-
-// 고해 등록
-export function addConfession(confession: Omit<Confession, 'candles' | 'isArchived' | 'candleVoters'>): void {
-  const db = readDb();
-  db.confessions.push({
-    ...confession,
+// 2. 고해 등록
+export async function addConfession(confession: Omit<Confession, 'candles' | 'isArchived' | 'candleVoters'>): Promise<void> {
+  const { error } = await supabase.from('confessions').insert({
+    id: confession.id,
+    author_id: confession.authorId,
+    author_name: confession.authorName,
+    content: confession.content,
+    tone: confession.tone,
+    created_at: confession.createdAt,
+    expires_at: confession.expiresAt,
     candles: 0,
-    isArchived: false,
-    candleVoters: [],
+    is_archived: false,
+    candle_voters: []
   });
-  writeDb(db);
+
+  if (error) {
+    console.error('Failed to add confession to Supabase:', error);
+    throw new Error('데이터베이스 저장 실패');
+  }
 }
 
-// 촛불 업데이트 및 박제 로직
-// 임계값 (기본 100개, 테스트를 위해 낮출 수도 있으나 요구사항 명세 v0.1 기준 100개. 
-// 개발 및 시연 편의를 위해 임계값을 상수로 분리)
-export const GLASS_THRESHOLD = 5; // 개발 중 테스트 편의를 위해 일단 5개로 지정 (요구사항은 100개이나 서버 설정으로 조정 가능해야 하므로)
+// 3. 촛불 업데이트 및 박제 로직 (RPC 호출로 원자적 처리)
+export async function addCandle(
+  confessionId: string, 
+  userId: string
+): Promise<{ success: boolean; candles: number; isArchived: boolean }> {
+  
+  const { data, error } = await supabase.rpc('increment_candle', {
+    confession_id: confessionId,
+    user_id: userId
+  });
 
-export function addCandle(confessionId: string, userId: string): { success: boolean; candles: number; isArchived: boolean } {
-  const db = readDb();
-  const confession = db.confessions.find((c) => c.id === confessionId);
-  if (!confession) return { success: false, candles: 0, isArchived: false };
-
-  // 1인 1회 투표 제어
-  if (confession.candleVoters.includes(userId)) {
-    return { success: false, candles: confession.candles, isArchived: confession.isArchived };
+  if (error) {
+    console.error('Failed to execute increment_candle RPC:', error);
+    return { success: false, candles: 0, isArchived: false };
   }
 
-  confession.candleVoters.push(userId);
-  confession.candles += 1;
+  // RPC 반환 타입: { success: boolean, candles: number, isArchived: boolean }
+  const result = data as { success: boolean; candles: number; isArchived: boolean };
+  return result;
+}
 
-  if (confession.candles >= GLASS_THRESHOLD && !confession.isArchived) {
-    confession.isArchived = true;
+// 4. 만료된 고민 글 삭제 (정리용 쿼리)
+export async function cleanExpiredConfessions(): Promise<void> {
+  const nowStr = new Date().toISOString();
+  
+  // RLS가 꺼져 있으므로 일반 anon 클라이언트로도 delete가 가능합니다.
+  const { error } = await supabase
+    .from('confessions')
+    .delete()
+    .eq('is_archived', false)
+    .lt('expires_at', nowStr);
+
+  if (error) {
+    console.error('Failed to clean expired confessions:', error);
+  }
+}
+
+// 5. 답장 추가
+export async function addReply(reply: Reply): Promise<void> {
+  const { error } = await supabase.from('replies').insert({
+    id: reply.id,
+    confession_id: reply.confessionId,
+    recipient_id: reply.recipientId,
+    tone: reply.tone,
+    content: reply.content,
+    sent_at: reply.sentAt,
+    is_read: reply.isRead
+  });
+
+  if (error) {
+    console.error('Failed to add reply to Supabase:', error);
+  }
+}
+
+// 6. 사용자의 답장 리스트 가져오기 (5분 지연 조건 반영)
+export async function getUserReplies(userId: string): Promise<Reply[]> {
+  const nowStr = new Date().toISOString();
+  
+  const { data, error } = await supabase
+    .from('replies')
+    .select('*')
+    .eq('recipient_id', userId)
+    .lte('sent_at', nowStr)
+    .order('sent_at', { ascending: false });
+
+  if (error) {
+    console.error('Failed to fetch replies from Supabase:', error);
+    return [];
   }
 
-  writeDb(db);
-  return { success: true, candles: confession.candles, isArchived: confession.isArchived };
+  // DB 스네이크 케이스 필드를 캐멀 케이스로 매핑하여 반환
+  return (data || []).map((r: any) => ({
+    id: r.id,
+    confessionId: r.confession_id,
+    recipientId: r.recipient_id,
+    tone: r.tone,
+    content: r.content,
+    sentAt: r.sent_at,
+    isRead: r.is_read
+  }));
 }
 
-// 만료된 고민 글 삭제 (정리 스케줄러 대체용 함수)
-// 촛불이 GLASS_THRESHOLD 미만이고 만료 시간이 지난 글은 하드 삭제한다.
-// 5분 내에 답장 편지가 도착해야 하므로, 생성 후 최소 5분간은 데이터가 보존되어야 한다.
-export function cleanExpiredConfessions(): void {
-  const db = readDb();
-  const now = new Date();
-  
-  db.confessions = db.confessions.filter((c) => {
-    // 박제된 글(isArchived === true)은 영구 보존
-    if (c.isArchived) return true;
-    
-    const expiresAt = new Date(c.expiresAt);
-    return expiresAt > now; // 만료되지 않은 글만 남김
-  });
-  
-  writeDb(db);
-}
-
-// 답장 추가
-export function addReply(reply: Reply): void {
-  const db = readDb();
-  db.replies.push(reply);
-  writeDb(db);
-}
-
-// 사용자의 답장 리스트 가져오기
-export function getUserReplies(userId: string): Reply[] {
-  const db = readDb();
-  const now = new Date();
-  
-  // 보낸 시간(sentAt)이 현재 시간보다 이전(5분 지연 조건)인 편지만 노출
-  return db.replies.filter((r) => r.recipientId === userId && new Date(r.sentAt) <= now);
+// 7. 전체 DB 리스트 조회를 위한 Helper Mapper (Confession 맵핑)
+export function mapDbConfessionToSchema(raw: any): Confession {
+  return {
+    id: raw.id,
+    authorId: raw.author_id,
+    authorName: raw.author_name,
+    content: raw.content,
+    tone: raw.tone as 'angel' | 'devil',
+    candles: raw.candles,
+    createdAt: raw.created_at,
+    expiresAt: raw.expires_at,
+    isArchived: raw.is_archived,
+    candleVoters: raw.candle_voters || []
+  };
 }

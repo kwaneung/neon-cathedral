@@ -4,15 +4,16 @@ import { getOrCreateSession, getSession } from '@/lib/session';
 import { 
   addConfession, 
   addReply, 
-  readDb, 
   addCandle, 
   cleanExpiredConfessions, 
   getUserReplies, 
   Confession, 
-  Reply 
+  Reply,
+  mapDbConfessionToSchema 
 } from '@/lib/db';
 import { generateLetterContent } from '@/lib/letters';
-import { revalidateTag, updateTag } from 'next/cache';
+import { updateTag } from 'next/cache';
+import { supabase } from '@/lib/supabase';
 
 // 1. 고해 작성 및 등록 (답장 생성 포함)
 export async function submitConfessionAction(
@@ -34,8 +35,8 @@ export async function submitConfessionAction(
     // 24시간 뒤 만료
     const expiresAt = new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
 
-    // 고해 등록
-    addConfession({
+    // 고해 등록 (await 추가)
+    await addConfession({
       id,
       authorId: session.id,
       authorName: session.name,
@@ -46,17 +47,12 @@ export async function submitConfessionAction(
     });
 
     // 5분 후 도착하는 답장 편지 생성
-    // (실제 시연/테스트 편의를 위해 5분을 10초로 단축하여 테스트해볼 수 있도록 딜레이 값을 10초로 설정)
-    // 요구사항 명세 v0.1은 5분이나, 실제로 5분을 기다려 테스트하기는 어려우므로
-    // 기본적으로 10초 딜레이를 주는 환경변수나 조건 처리가 있으면 유용함.
-    // 여기서는 개발 편의를 위해 10초(10,000ms) 딜레이를 부여하자! (5분은 300,000ms)
-    // 다만 명세에는 '5분 후'라고 명시되어 있으므로 300,000ms를 적용하고, 
-    // 본 코드에서는 300,000ms (5분)로 맞추어 설정하되 주석으로 명시한다.
     const DELAY_MS = 5 * 60 * 1000; // 5분
     const sentAt = new Date(createdAt.getTime() + DELAY_MS);
     const replyContent = generateLetterContent(content, tone);
 
-    addReply({
+    // 답장 등록 (await 추가)
+    await addReply({
       id: Math.random().toString(36).substring(2, 15),
       confessionId: id,
       recipientId: session.id,
@@ -82,10 +78,12 @@ export async function toggleCandleAction(
 ): Promise<{ success: boolean; candles?: number; error?: string }> {
   try {
     const session = await getOrCreateSession();
-    const result = addCandle(confessionId, session.id);
+    
+    // 촛불 업데이트 (await 추가)
+    const result = await addCandle(confessionId, session.id);
 
     if (!result.success) {
-      return { success: false, error: '이미 이 고해에 촛불을 켰습니다.' };
+      return { success: false, error: '이미 이 고해에 촛불을 밝혔습니다.' };
     }
 
     // 캐시 태그 업데이트
@@ -94,27 +92,32 @@ export async function toggleCandleAction(
     return { success: true, candles: result.candles };
   } catch (error) {
     console.error('Failed to toggle candle:', error);
-    return { success: false, error: '촛불을 켜는 중 오류가 발생했습니다.' };
+    return { success: false, error: '촛불을 밝히는 중 오류가 발생했습니다.' };
   }
 }
 
-// 3. 본당 피드 리스트 가져오기
+// 3. 본당 피드 리스트 가져오기 (Supabase 조회 연동)
 export async function getFeedConfessionsAction(): Promise<Confession[]> {
   try {
-    // 만료된 글 하드 삭제
-    cleanExpiredConfessions();
+    // 만료된 글 정리 (백그라운드 실행)
+    await cleanExpiredConfessions();
 
-    const db = readDb();
+    const nowStr = new Date().toISOString();
     
-    // 공개 피드에는 아직 박제되지 않은 (또는 100개 미만인 상태의) 활성화된 글을 보여준다.
-    // 만료되지 않은 글 중에서 최근 순으로 정렬
-    const now = new Date();
-    const active = db.confessions.filter(
-      (c) => !c.isArchived && new Date(c.expiresAt) > now
-    );
+    // Supabase 쿼리: is_archived가 false이고 expires_at이 현재보다 미래인 글 조회
+    const { data, error } = await supabase
+      .from('confessions')
+      .select('*')
+      .eq('is_archived', false)
+      .gt('expires_at', nowStr)
+      .order('created_at', { ascending: false });
 
-    // 최신 등록 순으로 정렬
-    return active.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (error) {
+      console.error('Failed to query active confessions from Supabase:', error);
+      return [];
+    }
+
+    return (data || []).map(mapDbConfessionToSchema);
   } catch (error) {
     console.error('Failed to get feed confessions:', error);
     return [];
@@ -126,19 +129,29 @@ export async function getUserRepliesAction(): Promise<Reply[]> {
   try {
     const session = await getSession();
     if (!session) return [];
-    return getUserReplies(session.id);
+    return await getUserReplies(session.id);
   } catch (error) {
     console.error('Failed to get user replies:', error);
     return [];
   }
 }
 
-// 5. 스테인드글라스 박제 목록 가져오기
+// 5. 스테인드글라스 박제 목록 가져오기 (Supabase 조회 연동)
 export async function getStainedGlassAction(): Promise<Confession[]> {
   try {
-    const db = readDb();
-    // isArchived가 true인 글들만 필터링
-    return db.confessions.filter((c) => c.isArchived);
+    // Supabase 쿼리: is_archived가 true인 박제된 글들만 최신순 조회
+    const { data, error } = await supabase
+      .from('confessions')
+      .select('*')
+      .eq('is_archived', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to query archived confessions from Supabase:', error);
+      return [];
+    }
+
+    return (data || []).map(mapDbConfessionToSchema);
   } catch (error) {
     console.error('Failed to get stained glass confessions:', error);
     return [];
