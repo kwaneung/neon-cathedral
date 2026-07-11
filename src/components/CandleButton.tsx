@@ -164,13 +164,15 @@ export const CandleButton: React.FC<CandleButtonProps> = ({
         onMouseLeave={handlePressEnd}
         onTouchStart={handlePressStart}
         onTouchEnd={handlePressEnd}
+        onTouchCancel={handlePressEnd}
+        onContextMenu={(e) => e.preventDefault()}
         animate={
           justLit && !motionReduced
             ? { scale: [1, 1.25, 1] }
             : { scale: 1 }
         }
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className={`relative z-10 flex h-14 w-14 items-center justify-center rounded-full border transition-all duration-[240ms] focus:outline-none ${
+        className={`relative z-10 flex h-14 w-14 items-center justify-center rounded-full border transition-all duration-[240ms] focus:outline-none select-none touch-none ${
           voted
             ? 'border-flame/70 bg-gradient-to-br from-flame/20 to-flame-ember/10 text-flame shadow-glow-flame'
             : isPressing
@@ -178,11 +180,16 @@ export const CandleButton: React.FC<CandleButtonProps> = ({
             : 'border-line bg-surface-raised/60 text-text-mute hover:scale-[1.02] hover:border-line-strong hover:text-text-body'
         }`}
         style={{
-          cursor: voted ? 'default' : 'pointer'
+          cursor: voted ? 'default' : 'pointer',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          touchAction: 'none',
+          WebkitTapHighlightColor: 'transparent',
         }}
       >
         {!voted && isPressing && (
-          <svg className="absolute inset-0 h-full w-full -rotate-90">
+          <svg className="absolute inset-0 h-full w-full -rotate-90 pointer-events-none">
             <circle
               cx="28"
               cy="28"
@@ -209,7 +216,7 @@ export const CandleButton: React.FC<CandleButtonProps> = ({
         )}
 
         <Flame 
-          className={`h-5 w-5 transition-all duration-700 ${
+          className={`h-5 w-5 pointer-events-none transition-all duration-700 ${
             voted
               ? `fill-flame text-flame ${motionReduced ? '' : 'animate-candle-flicker'}`
               : isPressing
@@ -219,9 +226,15 @@ export const CandleButton: React.FC<CandleButtonProps> = ({
         />
       </motion.button>
 
-      <span className={`mt-2 text-caption font-medium tabular-nums transition-all duration-[240ms] ${
-        voted ? 'text-flame' : 'text-text-mute'
-      }`}>
+      <span 
+        className={`mt-2 text-caption font-medium tabular-nums transition-all duration-[240ms] select-none ${
+          voted ? 'text-flame' : 'text-text-mute'
+        }`}
+        style={{
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+        }}
+      >
         촛불 {candles}
       </span>
     </div>

@@ -469,7 +469,12 @@ export default function Home() {
                 step="0.05"
                 value={audioVolume}
                 onChange={handleVolumeChange}
-                className="w-14 h-[3px] bg-surface-raised rounded-lg appearance-none cursor-pointer accent-[#ffc46b] outline-none"
+                className="w-14 h-[3px] bg-surface-raised rounded-lg appearance-none cursor-pointer accent-[#ffc46b] outline-none select-none touch-none"
+                style={{
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  touchAction: 'none',
+                }}
               />
             </div>
           </div>
@@ -1043,7 +1048,12 @@ export default function Home() {
                     step="0.05"
                     value={audioVolume}
                     onChange={handleVolumeChange}
-                    className="flex-1 h-[4px] bg-surface-raised rounded-lg appearance-none cursor-pointer accent-[#ffc46b] outline-none"
+                    className="flex-1 h-[4px] bg-surface-raised rounded-lg appearance-none cursor-pointer accent-[#ffc46b] outline-none select-none touch-none"
+                    style={{
+                      userSelect: 'none',
+                      WebkitUserSelect: 'none',
+                      touchAction: 'none',
+                    }}
                   />
                   <span className="text-text-faint"><Volume2 className="h-4 w-4" /></span>
                 </div>
