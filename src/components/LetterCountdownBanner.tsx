@@ -98,7 +98,7 @@ export function LetterCountdownBanner({
       aria-live="polite"
       aria-atomic="true"
       aria-label={ariaLabel}
-      className={`flex min-h-12 items-center gap-3 rounded-2xl border border-amber-500/20 bg-[#09090e]/70 px-4 py-3 shadow-[0_0_24px_rgba(245,158,11,0.08)] backdrop-blur-xl ${
+      className={`flex min-h-12 items-center gap-3 rounded-md border border-flame/25 bg-surface/80 px-4 py-3 shadow-glow-flame backdrop-blur-xl ${
         phase === 'exiting'
           ? 'animate-banner-exit'
           : reducedMotion
@@ -107,20 +107,20 @@ export function LetterCountdownBanner({
       }`}
     >
       <Hourglass
-        className={`h-4 w-4 shrink-0 text-amber-500 ${
-          reducedMotion ? '' : 'animate-pulse'
+        className={`h-4 w-4 shrink-0 text-flame ${
+          reducedMotion ? '' : 'animate-candle-flicker'
         }`}
         aria-hidden="true"
       />
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
-        <span className="text-[11px] font-sans font-light tracking-wide text-zinc-400">
+        <span className="text-caption text-text-mute">
           답장 도착까지
         </span>
         {extraPendingCount > 0 && (
-          <span className="text-[10px] text-zinc-600">외 {extraPendingCount}건</span>
+          <span className="text-caption text-text-mute">외 {extraPendingCount}건</span>
         )}
       </div>
-      <span className="letter-timer font-mono text-lg tabular-nums tracking-[0.12em] text-amber-300">
+      <span className="letter-timer font-mono text-lg tabular-nums text-flame-hi">
         {formatMmSs(displaySeconds)}
       </span>
     </div>

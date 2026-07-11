@@ -42,7 +42,7 @@ export const BurnEffect: React.FC<BurnEffectProps> = ({ text, onComplete, active
     const centerY = canvas.height / 2;
 
     // 텍스트를 먼저 그리기 (화면 중앙에 흩어질 텍스트)
-    ctx.font = '20px Outfit, sans-serif';
+    ctx.font = '20px "Gowun Batang", serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -78,11 +78,11 @@ export const BurnEffect: React.FC<BurnEffectProps> = ({ text, onComplete, active
     // 픽셀 중 흰색 계열(글자)을 파티클로 전환
     const step = 4; // 성능 최적화를 위한 픽셀 간격
     const colors = [
-      '#ff3b30', // Red
-      '#ff9500', // Orange
-      '#ffcc00', // Yellow
-      '#ff2d55', // Pinkish Red
-      '#8e8e93', // Ash Gray (재)
+      '#ffdca8',
+      '#ffc46b',
+      '#ff9e45',
+      '#e0533a',
+      '#56506b', // 재
     ];
 
     for (let y = 0; y < imgData.height; y += step) {
@@ -129,7 +129,7 @@ export const BurnEffect: React.FC<BurnEffectProps> = ({ text, onComplete, active
     let frameCount = 0;
 
     const animate = () => {
-      ctx.fillStyle = 'rgba(10, 10, 10, 0.15)'; // 잔상 효과
+      ctx.fillStyle = 'rgba(10, 8, 18, 0.15)'; // 잔상 효과 (nave 톤)
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       for (let i = particles.length - 1; i >= 0; i--) {
@@ -153,9 +153,9 @@ export const BurnEffect: React.FC<BurnEffectProps> = ({ text, onComplete, active
         // 불 타들어 가다 재가 되는 색 조합
         let color = p.color;
         if (lifeRatio > 0.6) {
-          color = '#3a3a3c'; // 완전히 타서 재가 됨 (Dark Gray)
-        } else if (lifeRatio > 0.3 && p.color !== '#8e8e93') {
-          color = '#ff9500'; // 주황/노랑으로 승화
+          color = '#3d3852'; // 완전히 타서 재가 됨
+        } else if (lifeRatio > 0.3 && p.color !== '#56506b') {
+          color = '#ff9e45'; // 승화
         }
 
         ctx.beginPath();
@@ -163,7 +163,7 @@ export const BurnEffect: React.FC<BurnEffectProps> = ({ text, onComplete, active
         ctx.fillStyle = color;
         
         // 글로우 효과 (주황/노랑 파티클에 적용)
-        if (lifeRatio < 0.6 && color !== '#3a3a3c') {
+        if (lifeRatio < 0.6 && color !== '#3d3852') {
           ctx.shadowBlur = 10;
           ctx.shadowColor = color;
         } else {
