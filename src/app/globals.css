@@ -137,6 +137,16 @@ body {
   -webkit-tap-highlight-color: transparent;
   word-break: keep-all;
   overflow-wrap: break-word;
+  overscroll-behavior-y: none;
+}
+
+/* iOS 탭 하이라이트 플래시 제거 */
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
 }
 
 ::selection {
