@@ -85,7 +85,7 @@ export const CandleButton: React.FC<CandleButtonProps> = ({
         onVoteError(res.error);
         setPressProgress(0);
       }
-    } catch (err) {
+    } catch (_err) {
       onVoteError('촛불 수송 장애가 발생했습니다.');
       setPressProgress(0);
     }

@@ -94,7 +94,7 @@ export class LofiSynth {
       try {
         g.gain.setValueAtTime(g.gain.value, this.ctx!.currentTime);
         g.gain.linearRampToValueAtTime(0, this.ctx!.currentTime + 1.5); // 페이드 아웃
-      } catch (e) {}
+      } catch (_e) {}
     });
     
     // 약간의 딜레이 뒤 완전히 정지
@@ -103,7 +103,7 @@ export class LofiSynth {
       currentOscs.forEach((o) => {
         try {
           o.stop();
-        } catch (e) {}
+        } catch (_e) {}
       });
     }, 1500);
 
@@ -184,7 +184,7 @@ export class LofiSynth {
     if (this.noiseSource) {
       try {
         this.noiseSource.stop();
-      } catch (e) {}
+      } catch (_e) {}
       this.noiseSource = null;
     }
 

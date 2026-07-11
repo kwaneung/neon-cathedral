@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { getNextVisitorNumber } from './db';
-import { crypto } from 'next/dist/compiled/@edge-runtime/primitives';
 
 export interface UserSession {
   id: string;
@@ -64,7 +63,7 @@ export async function getSession(): Promise<UserSession | null> {
   if (sessionCookie?.value) {
     try {
       return JSON.parse(sessionCookie.value) as UserSession;
-    } catch (e) {
+    } catch (_e) {
       return null;
     }
   }
