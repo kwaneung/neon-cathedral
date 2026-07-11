@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#07060b",
+  themeColor: "#0a0812",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -44,7 +44,7 @@ export default function RootLayout({
       className={`${gowun.variable} ${cormorant.variable} ${notoSans.variable} h-full antialiased dark`}
       style={{ colorScheme: "dark" }}
     >
-      <body className="min-h-dvh bg-ink font-sans text-stone-300">
+      <body className="min-h-dvh bg-nave font-sans text-text-body">
         {children}
       </body>
     </html>
