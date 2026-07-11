@@ -78,10 +78,17 @@ export default function Home() {
   const notifiedReplyIdsRef = useRef<Set<string>>(new Set());
   const pendingRepliesRef = useRef<PendingReply[]>([]);
   const viewRef = useRef(view);
+  const closeStainedDialogButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const motionReduced = reducedMotion || prefersReducedMotion;
   const earliestPending = pendingReplies[0] ?? null;
   const hasPending = pendingReplies.length > 0;
+  const viewMotion = motionReduced
+    ? { initial: false as const, animate: { opacity: 1, y: 0 }, transition: { duration: 0 } }
+    : { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } };
+  const toastMotion = motionReduced
+    ? { initial: false as const, animate: { opacity: 1, y: 0 }, exit: { opacity: 0 }, transition: { duration: 0 } }
+    : { initial: { opacity: 0, y: -12 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -8 }, transition: { duration: 0.24, ease: [0.22, 1, 0.36, 1] as const } };
 
   useEffect(() => {
     viewRef.current = view;
@@ -236,6 +243,16 @@ export default function Home() {
     return () => window.clearTimeout(t);
   }, [arrivalToastVisible]);
 
+  useEffect(() => {
+    if (!selectedStainedConfession) return;
+    closeStainedDialogButtonRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedStainedConfession(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedStainedConfession]);
+
   // 4. 성당 입장 (사운드 락 해제 및 재생 시작)
   const handleEnterCathedral = () => {
     try {
@@ -309,6 +326,16 @@ export default function Home() {
     }
   };
 
+  useEffect(() => {
+    if (!isBurning || !motionReduced) return;
+    const t = window.setTimeout(() => {
+      handleBurnComplete();
+    }, 400);
+    return () => window.clearTimeout(t);
+    // The reduced-motion branch intentionally mirrors BurnEffect's completion callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBurning, motionReduced]);
+
   const handleOpenReply = async (replyId: string) => {
     const res = await markReplyAsReadAction(replyId);
     if (!res.success) {
@@ -355,78 +382,85 @@ export default function Home() {
     return `${diffHours}시간 ${diffMins}분 후 재가 되어 소멸`;
   };
 
-  // 스테인드글라스 유리 스타일링 (Voronoi 모자이크)
+  // 스테인드글라스 유리 스타일링 (lancet gem palettes)
   const getGlassLayout = (index: number, candles: number, id: string) => {
-    const clips = ['glass-clip-1', 'glass-clip-2', 'glass-clip-3', 'glass-clip-4', 'glass-clip-5', 'glass-clip-6'];
-    const clipClass = clips[index % clips.length];
-    
     const hash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const colors = [
-      'from-rose-500/80 via-purple-600/60 to-zinc-950/90 hover:from-rose-400 hover:via-purple-500 border-rose-500/30 text-rose-100 shadow-[inset_0_0_20px_rgba(244,63,94,0.3)]', // Ruby
-      'from-cyan-500/80 via-blue-600/60 to-zinc-950/90 hover:from-cyan-400 hover:via-blue-500 border-cyan-500/30 text-cyan-100 shadow-[inset_0_0_20px_rgba(6,182,212,0.3)]', // Sapphire
-      'from-emerald-500/80 via-teal-600/60 to-zinc-950/90 hover:from-emerald-400 hover:via-teal-500 border-emerald-500/30 text-emerald-100 shadow-[inset_0_0_20px_rgba(16,185,129,0.3)]', // Emerald
-      'from-amber-500/80 via-orange-600/60 to-zinc-950/90 hover:from-amber-400 hover:via-orange-500 border-amber-500/30 text-amber-100 shadow-[inset_0_0_20px_rgba(245,158,11,0.3)]', // Topaz
-      'from-violet-500/80 via-fuchsia-600/60 to-zinc-950/90 hover:from-violet-400 hover:via-fuchsia-500 border-violet-500/30 text-violet-100 shadow-[inset_0_0_20px_rgba(139,92,246,0.3)]' // Amethyst
+      'from-[#e5484d]/70 via-[#8c2f4a]/55 to-crypt/95 text-[#ffe4e6]',
+      'from-[#4c6fe8]/70 via-[#33408f]/55 to-crypt/95 text-[#e0e7ff]',
+      'from-[#2fb67c]/70 via-[#1d6e55]/55 to-crypt/95 text-[#d9fbe9]',
+      'from-[#e8b33c]/70 via-[#8f6524]/55 to-crypt/95 text-[#fdf3d7]',
+      'from-[#9a5cd0]/70 via-[#5c3684]/55 to-crypt/95 text-[#f0e5ff]',
     ];
     
     const colorStyle = colors[hash % colors.length];
-    const delay = (index % 4) * 0.15;
+    const delay = (index % 4) * 0.09;
     
     return {
-      clipClass,
+      clipClass: '',
       colorStyle,
-      delay
+      delay,
     };
   };
 
   return (
-    <div className="relative flex flex-col flex-1 w-full min-h-screen bg-[#020203] text-zinc-300 font-sans overflow-x-hidden pb-32">
-      
-      {/* 1. 극초미학적 앰비언트 글로우 스팟들 (Dribbble Cyber Gothic) */}
-      <div className="fixed top-[-10%] left-[-15%] w-[60vw] h-[60vw] rounded-full bg-cyan-950/15 blur-[140px] pointer-events-none animate-glow" />
-      <div className="fixed bottom-[10%] right-[-20%] w-[70vw] h-[70vw] rounded-full bg-rose-950/10 blur-[160px] pointer-events-none animate-glow" style={{ animationDelay: '-3s' }} />
-      <div className="fixed top-[40%] left-[50%] -translate-x-1/2 w-[50vw] h-[50vw] rounded-full bg-purple-950/5 blur-[180px] pointer-events-none animate-glow" style={{ animationDelay: '-6s' }} />
+    <div className="relative flex flex-col flex-1 w-full min-h-screen bg-nave text-text-body font-sans overflow-x-hidden pb-32">
+      <div className="god-ray" aria-hidden />
+      <div className="candle-pool" aria-hidden />
+      <div className="texture-grain" aria-hidden />
 
       {/* 연소 Canvas 효과 */}
-      <BurnEffect text={burningText} active={isBurning} onComplete={handleBurnComplete} />
+      {isBurning && !motionReduced && (
+        <BurnEffect text={burningText} active={isBurning} onComplete={handleBurnComplete} />
+      )}
+      <AnimatePresence>
+        {isBurning && motionReduced && (
+          <motion.div
+            aria-hidden
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="fixed inset-0 z-50 bg-crypt/85 backdrop-blur-sm"
+          />
+        )}
+      </AnimatePresence>
 
       {/* 헤더 */}
       {view !== 'ENTRANCE' && (
-        <motion.header 
-          initial={{ y: -30, opacity: 0 }}
+        <motion.header
+          initial={motionReduced ? false : { y: -12, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 80, damping: 15 }}
-          className="sticky top-0 z-30 w-full backdrop-blur-2xl bg-[#020203]/70 border-b border-white/[0.03] px-6 py-4 flex items-center justify-between"
+          transition={motionReduced ? { duration: 0 } : { duration: 0.24, ease: [0.22, 1, 0.36, 1] as const }}
+          className="sticky top-0 z-30 h-14 px-5 flex items-center justify-between bg-nave/80 backdrop-blur-xl border-b border-line"
         >
           <div 
             onClick={() => setView('CATHEDRAL')}
             className="flex items-center gap-3 cursor-pointer group"
           >
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 p-[1px] shadow-[0_0_15px_rgba(245,158,11,0.3)] transition-transform group-hover:scale-105">
-              <div className="flex h-full w-full items-center justify-center rounded-xl bg-[#030305]">
-                <Flame className="h-4.5 w-4.5 text-amber-500 fill-amber-500/20" />
-              </div>
+            <div className="w-7 h-9 rounded-[999px_999px_6px_6px] bg-gradient-to-b from-flame/25 to-transparent border border-flame/30 flex items-end justify-center pb-1 transition-transform group-hover:scale-105">
+              <Flame className={`h-3.5 w-3.5 text-flame fill-flame/30 ${motionReduced ? '' : 'animate-candle-flicker'}`} />
             </div>
-            <h1 className="font-serif text-sm tracking-[0.25em] text-[#fafafa] font-bold uppercase transition-colors group-hover:text-amber-400">
-              NEON CATHEDRAL
+            <h1 className="font-display text-[15px] tracking-[0.28em] text-text-hi uppercase transition-colors group-hover:text-flame">
+              Neon Cathedral
             </h1>
           </div>
 
           <div className="flex items-center gap-4">
             {userSession && (
-              <span className="hidden md:inline-block text-[11px] font-medium text-zinc-400 bg-white/[0.02] border border-white/[0.04] px-3.5 py-1.5 rounded-full tracking-wider shadow-inner">
-                🕯️ {userSession.name}
+              <span className="hidden md:inline-flex text-caption text-text-mute bg-surface border border-line px-3 py-1.5 rounded-full">
+                {userSession.name}
               </span>
             )}
 
             {/* BGM 퀵 컨트롤러 */}
-            <div className="flex items-center gap-3 bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.1] px-3 py-1.5 rounded-full transition-all shadow-lg">
+            <div className="flex items-center gap-2 bg-surface/80 border border-line px-2.5 py-1 rounded-full shadow-float">
               <button 
                 onClick={toggleBGM}
-                className="text-zinc-400 hover:text-[#fff] transition-colors p-0.5"
+                className="w-11 h-11 -m-1 flex items-center justify-center text-text-mute hover:text-text-hi transition-colors rounded-full"
                 title={audioPlaying ? 'BGM 정지' : 'BGM 재생'}
               >
-                {audioPlaying ? <Volume2 className="h-3.5 w-3.5 text-amber-500 animate-pulse" /> : <VolumeX className="h-3.5 w-3.5" />}
+                {audioPlaying ? <Volume2 className={`h-4 w-4 text-flame ${motionReduced ? '' : 'animate-candle-flicker'}`} /> : <VolumeX className="h-4 w-4" />}
               </button>
               <input 
                 type="range" 
@@ -435,7 +469,7 @@ export default function Home() {
                 step="0.05"
                 value={audioVolume}
                 onChange={handleVolumeChange}
-                className="w-14 h-[3px] bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500 outline-none"
+                className="w-14 h-[3px] bg-surface-raised rounded-lg appearance-none cursor-pointer accent-[#ffc46b] outline-none"
               />
             </div>
           </div>
@@ -446,41 +480,35 @@ export default function Home() {
       <AnimatePresence>
         {errorMsg && (
           <motion.div 
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-red-950/40 border border-red-900/30 text-red-200 px-5 py-3 rounded-2xl text-xs backdrop-blur-xl shadow-2xl"
+            {...toastMotion}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 max-w-[calc(100vw-2rem)] min-h-11 px-5 py-3 rounded-md backdrop-blur-xl shadow-float text-caption bg-surface/90 border border-devil/30 shadow-glow-devil text-text-hi"
           >
-            <AlertCircle className="h-4.5 w-4.5 text-red-400 shrink-0" />
-            <span className="font-light tracking-wide">{errorMsg}</span>
+            <AlertCircle className="h-4.5 w-4.5 text-devil shrink-0" />
+            <span>{errorMsg}</span>
           </motion.div>
         )}
         {successMsg && (
           <motion.div 
-            initial={motionReduced ? false : { opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={motionReduced ? undefined : { opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-zinc-900/40 border border-white/[0.06] text-amber-300 px-5 py-3 rounded-2xl text-xs backdrop-blur-xl shadow-2xl"
+            {...toastMotion}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 max-w-[calc(100vw-2rem)] min-h-11 px-5 py-3 rounded-md backdrop-blur-xl shadow-float text-caption bg-surface/90 border border-flame/30 shadow-glow-flame text-text-hi"
           >
-            <Sparkles className="h-4.5 w-4.5 text-amber-400 shrink-0" />
-            <span className="font-light tracking-wide text-zinc-200">{successMsg}</span>
+            <Sparkles className="h-4.5 w-4.5 text-flame shrink-0" />
+            <span>{successMsg}</span>
           </motion.div>
         )}
         {arrivalToastVisible && (
           <motion.div
             role="status"
             aria-live="polite"
-            initial={motionReduced ? false : { opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={motionReduced ? undefined : { opacity: 0, y: -20, scale: 0.95 }}
+            {...toastMotion}
             onClick={() => {
               setArrivalToastVisible(false);
               setView('LETTER_BOX');
             }}
-            className="fixed top-24 left-1/2 z-50 flex min-h-11 -translate-x-1/2 cursor-pointer items-center gap-3 rounded-2xl border border-white/[0.06] bg-zinc-900/40 px-5 py-3 text-xs text-amber-300 shadow-2xl backdrop-blur-xl"
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 max-w-[calc(100vw-2rem)] min-h-11 px-5 py-3 rounded-md backdrop-blur-xl shadow-float text-caption cursor-pointer bg-surface/90 border border-flame/30 shadow-glow-flame text-text-hi"
           >
-            <Mail className="h-4.5 w-4.5 shrink-0 text-amber-400" />
-            <span className="font-light tracking-wide text-zinc-200">
+            <Mail className="h-4.5 w-4.5 shrink-0 text-flame" />
+            <span>
               성찰의 시간이 끝났습니다. 편지봉투가 도착했어요.
             </span>
           </motion.div>
@@ -488,67 +516,76 @@ export default function Home() {
       </AnimatePresence>
 
       {/* 메인 프레임 */}
-      <main className="flex-1 w-full max-w-xl mx-auto px-4 py-8 flex flex-col justify-center">
+      <main className="flex-1 w-full max-w-xl lg:max-w-2xl mx-auto px-4 py-8 flex flex-col justify-center">
         
         {/* VIEW 1: 성당 입구 (ENTRANCE) - 극도의 비주얼 고도화 */}
         {view === 'ENTRANCE' && (
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="flex flex-col items-center text-center py-12 px-6 max-w-lg mx-auto"
+            {...viewMotion}
+            className="flex flex-col items-center text-center py-8 px-2 max-w-lg mx-auto"
           >
             {/* 고딕 아치 형태로 마스크 처리된 생성 이미지 */}
             <motion.div 
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 1.2, ease: 'easeOut' }}
-              className="relative w-full aspect-[4/3] rounded-[100px_100px_24px_24px] overflow-hidden border border-white/[0.08] shadow-[0_20px_50px_rgba(0,0,0,0.8),_0_0_30px_rgba(245,158,11,0.05)] mb-10"
+              initial={motionReduced ? false : { opacity: 0, scale: 0.96, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] as const }}
+              className="relative w-full aspect-[4/5] sm:aspect-[4/3] max-h-[520px] rounded-[var(--radius-arch-hero)] overflow-hidden border border-line-strong shadow-card mb-10"
             >
               <Image 
                 src="/images/cathedral_entrance.jpg"
                 alt="Neon Cathedral Entrance"
                 fill
                 priority
-                className="object-cover opacity-90 brightness-[0.75] contrast-[1.05]"
+                className="object-cover brightness-[0.8] saturate-[0.9]"
               />
               {/* 이미지 위 오버레이 그라데이션 */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#020203] via-transparent to-[#020203]/20" />
+              <div className="absolute inset-0 bg-gradient-to-t from-crypt via-crypt/10 to-nave/20" />
               
               {/* 앰비언트 촛불 데코 */}
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1.5 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/[0.05]">
-                <Flame className="h-4.5 w-4.5 text-amber-500 fill-amber-500/20 animate-pulse" />
-                <span className="text-[10px] font-sans font-light tracking-[0.2em] text-amber-400 uppercase">Aura Light ON</span>
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1.5 bg-surface/75 backdrop-blur-md px-4 py-2 rounded-full border border-flame/25 shadow-glow-flame">
+                <Flame className={`h-4.5 w-4.5 text-flame fill-flame/30 ${motionReduced ? '' : 'animate-candle-flicker'}`} />
+                <span className="text-caption tracking-[0.18em] text-flame uppercase">촛불이 켜져 있습니다</span>
               </div>
             </motion.div>
 
             {/* 타이틀 폰트 조합의 고도화 (Playfair & Outfit) */}
-            <h2 className="font-serif text-4xl sm:text-5xl tracking-[0.25em] bg-gradient-to-b from-[#ffffff] via-[#f1f1f3] to-[#8d8d96] bg-clip-text text-transparent font-bold mb-3">
+            <motion.h2
+              initial={motionReduced ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.08, ease: [0.22, 1, 0.36, 1] as const }}
+              className="font-display text-display tracking-[0.2em] bg-gradient-to-b from-text-hi via-text-body to-text-faint bg-clip-text text-transparent mb-2 uppercase"
+            >
               NEON CATHEDRAL
-            </h2>
-            <p className="text-zinc-500 font-sans text-[10px] sm:text-xs tracking-[0.4em] uppercase mb-10 font-medium">
-              "소멸의 고해소 & 따뜻한 촛불의 회랑"
+            </motion.h2>
+            <p className="font-serif text-heading text-text-hi mb-2">네온 성당</p>
+            <p className="text-text-mute font-sans text-caption tracking-[0.35em] uppercase mb-10">
+              소멸의 고해소 & 따뜻한 촛불의 회랑
             </p>
 
             {/* 미니멀한 약관 카드 */}
-            <div className="w-full text-zinc-400 text-xs font-light leading-relaxed text-left space-y-3.5 bg-[#07070a]/50 border border-white/[0.03] p-6 rounded-2xl backdrop-blur-xl shadow-xl mb-12 border-shimmering">
-              <div className="flex gap-2">
-                <span className="text-amber-500 text-sm font-semibold">Ⅰ.</span>
+            <motion.div
+              initial={motionReduced ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.16, ease: [0.22, 1, 0.36, 1] as const }}
+              className="w-full text-text-body text-caption leading-relaxed text-left space-y-4 bg-surface/70 border border-line p-6 rounded-[24px] backdrop-blur-xl shadow-card mb-12"
+            >
+              <div className="flex gap-3">
+                <span className="font-display text-heading text-flame">Ⅰ</span>
                 <p>본 성당은 개인정보(IP, 이메일, 이름)를 일절 수집하지 않으며, 입장 즉시 익명 순번 식별자가 고유하게 부여됩니다.</p>
               </div>
-              <div className="flex gap-2">
-                <span className="text-amber-500 text-sm font-semibold">Ⅱ.</span>
+              <div className="flex gap-3">
+                <span className="font-display text-heading text-flame">Ⅱ</span>
                 <p>작성된 모든 고해는 불꽃으로 소멸된 뒤 24시간 후 서버에서 영구 삭제됩니다. 단, 5촛불 이상의 공감을 얻은 고민은 영원불멸의 스테인드글라스 벽화로 박제됩니다.</p>
               </div>
-              <div className="flex gap-2">
-                <span className="text-amber-500 text-sm font-semibold">Ⅲ.</span>
+              <div className="flex gap-3">
+                <span className="font-display text-heading text-flame">Ⅲ</span>
                 <p>글을 태운 지 5분이 흐르면, 당신만을 위한 다정한 위로 혹은 냉철한 이성의 답장(편지봉투)이 조용히 배달됩니다.</p>
               </div>
-            </div>
+            </motion.div>
 
             <button
               onClick={handleEnterCathedral}
-              className="w-full py-4.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600 text-white font-sans font-bold text-xs sm:text-sm tracking-[0.3em] uppercase hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] transition-all duration-500 transform hover:-translate-y-0.5 active:translate-y-0"
+              className="w-full h-14 rounded-full bg-gradient-to-r from-flame via-flame-deep to-flame-ember text-on-flame font-sans font-bold text-caption sm:text-sm tracking-[0.28em] uppercase shadow-glow-flame-strong hover:brightness-110 transition-all duration-300 active:translate-y-px"
             >
               성당 안으로 들어가기
             </button>
@@ -558,24 +595,18 @@ export default function Home() {
         {/* VIEW 2: 고해실 (CONFESS) - 제단(Altar) 테마 디자인 */}
         {view === 'CONFESS' && (
           <motion.div 
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ type: 'spring', damping: 20 }}
+            {...viewMotion}
             className="space-y-8"
           >
-            <div className="text-center space-y-1 mb-2 animate-float">
-              <h3 className="font-serif text-3xl text-[#fafafa] font-bold tracking-widest">참회의 제단</h3>
-              <p className="text-[11px] font-sans font-light text-zinc-500 tracking-[0.2em] uppercase">Confession Altar</p>
+            <div className="text-center space-y-2 mb-2">
+              <Flame className={`mx-auto h-5 w-5 text-flame fill-flame/25 ${motionReduced ? '' : 'animate-candle-flicker'}`} />
+              <h3 className="font-serif text-title text-text-hi">참회의 제단</h3>
+              <p className="text-caption text-text-mute tracking-[0.2em] uppercase">Confession Altar</p>
             </div>
 
             {/* 고해 양식지 느낌의 극도 디자인 */}
-            <div className="relative rounded-3xl border border-white/[0.04] bg-[#07070a]/60 backdrop-blur-2xl p-6 shadow-2xl focus-within:border-amber-500/40 focus-within:shadow-[0_0_40px_rgba(245,158,11,0.06)] transition-all duration-500">
-              {/* 성당 장식용 금장 모서리 선 데코 */}
-              <div className="absolute top-3 left-3 w-4 h-4 border-t border-l border-white/10 rounded-tl" />
-              <div className="absolute top-3 right-3 w-4 h-4 border-t border-r border-white/10 rounded-tr" />
-              <div className="absolute bottom-3 left-3 w-4 h-4 border-b border-l border-white/10 rounded-bl" />
-              <div className="absolute bottom-3 right-3 w-4 h-4 border-b border-r border-white/10 rounded-br" />
+            <div className="relative rounded-[24px] border border-line bg-surface/80 backdrop-blur-xl p-6 shadow-card focus-within:border-flame/40 focus-within:shadow-glow-flame transition-all duration-300">
+              <div className="absolute left-6 right-6 top-0 h-px bg-gradient-to-r from-transparent via-flame/70 to-transparent" aria-hidden />
 
               <textarea
                 value={writingContent}
@@ -584,51 +615,66 @@ export default function Home() {
                 maxLength={2000}
                 rows={9}
                 disabled={isLoading}
-                className="w-full bg-transparent border-0 outline-none text-zinc-200 placeholder-zinc-700 text-sm font-serif font-light leading-relaxed resize-none focus:ring-0"
+                className="w-full bg-transparent border-0 outline-none font-serif text-body text-text-hi placeholder:text-text-faint leading-relaxed resize-none focus:ring-0"
               />
               
               {/* 게이지 바 형태의 캐릭터 카운터 */}
-              <div className="mt-6 pt-4 border-t border-white/[0.03] space-y-3">
-                <div className="w-full h-[1px] bg-zinc-900 rounded-full overflow-hidden">
+              <div className="mt-6 pt-4 border-t border-line space-y-3">
+                <div className="relative w-full h-[3px] bg-surface-raised rounded-full">
                   <div 
-                    className="h-full bg-gradient-to-r from-amber-500 to-rose-500 transition-all duration-300"
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      writingContent.length > 1800
+                        ? 'bg-gradient-to-r from-devil to-flame-ember'
+                        : 'bg-gradient-to-r from-flame to-flame-hi'
+                    }`}
                     style={{ width: `${(writingContent.length / 2000) * 100}%` }}
                   />
+                  <span
+                    className={`absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full shadow-glow-flame ${
+                      writingContent.length > 1800 ? 'bg-devil shadow-glow-devil' : 'bg-flame'
+                    }`}
+                    style={{ left: `calc(${Math.min(100, (writingContent.length / 2000) * 100)}% - 5px)` }}
+                    aria-hidden
+                  />
                 </div>
-                <div className="flex justify-between items-center text-[10px] text-zinc-500 font-light">
+                <div className="flex justify-between items-center text-caption text-text-mute">
                   <span className="flex items-center gap-1.5">
-                    <Lock className="h-3 w-3 text-zinc-700" />
-                    기밀 보장 (End-to-End Ephemeral)
+                    <Lock className="h-3 w-3 text-text-faint" />
+                    기밀 보장 — 흔적 없이 소멸
                   </span>
-                  <span className="font-sans font-light tracking-wide">{writingContent.length} / 2,000자</span>
+                  <span className={`font-sans tracking-wide ${writingContent.length > 1800 ? 'text-devil' : ''}`}>
+                    {writingContent.length} / 2,000자
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* 입체적 톤 카드 선택 영역 */}
             <div className="space-y-3.5">
-              <label className="text-[10px] font-sans font-light text-zinc-500 tracking-[0.2em] uppercase block pl-1">
-                서신 톤 선택 (Letter Tone)
+              <label className="text-caption text-text-mute tracking-[0.2em] uppercase block pl-1">
+                서신 톤 선택
               </label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-3 sm:grid sm:grid-cols-2" role="radiogroup" aria-label="서신 톤 선택">
                 {/* 천사 카드 */}
                 <button
                   type="button"
+                  role="radio"
+                  aria-checked={selectedTone === 'angel'}
                   onClick={() => setSelectedTone('angel')}
-                  className={`relative p-5 rounded-2xl border transition-all duration-500 focus:outline-none overflow-hidden ${
+                  className={`relative p-5 rounded-[24px] border transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-flame/50 overflow-hidden text-left ${
                     selectedTone === 'angel'
-                      ? 'border-cyan-500/40 bg-cyan-950/10 text-cyan-200 neon-glow-cyan scale-[1.02]'
-                      : 'border-white/[0.03] bg-[#07070a]/30 text-zinc-500 hover:border-white/[0.08]'
+                      ? 'border-cyan-400/45 bg-cyan-950/20 text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.12)]'
+                      : 'border-line bg-surface/55 text-text-mute hover:border-line-strong'
                   }`}
                 >
                   {selectedTone === 'angel' && (
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
                   )}
                   <div className="flex items-center gap-2.5 mb-2.5">
-                    <Sparkles className={`h-4.5 w-4.5 ${selectedTone === 'angel' ? 'text-cyan-400' : 'text-zinc-700'}`} />
-                    <span className="text-[11px] font-sans font-bold tracking-[0.15em] uppercase">천사의 위로</span>
+                    <Sparkles className={`h-4.5 w-4.5 ${selectedTone === 'angel' ? 'text-cyan-300' : 'text-text-faint'}`} />
+                    <span className="text-caption font-bold tracking-[0.15em] uppercase">천사의 위로</span>
                   </div>
-                  <p className="text-[10px] font-light leading-relaxed text-zinc-400/80 text-left font-serif">
+                  <p className="text-caption leading-relaxed text-text-body font-serif">
                     진심이 담긴 포근한 위로와, 따뜻한 마음의 포옹을 전하는 편지.
                   </p>
                 </button>
@@ -636,21 +682,23 @@ export default function Home() {
                 {/* 악마 카드 */}
                 <button
                   type="button"
+                  role="radio"
+                  aria-checked={selectedTone === 'devil'}
                   onClick={() => setSelectedTone('devil')}
-                  className={`relative p-5 rounded-2xl border transition-all duration-500 focus:outline-none overflow-hidden ${
+                  className={`relative p-5 rounded-[24px] border transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-devil/50 overflow-hidden text-left ${
                     selectedTone === 'devil'
-                      ? 'border-rose-500/40 bg-rose-950/10 text-rose-200 neon-glow-magenta scale-[1.02]'
-                      : 'border-white/[0.03] bg-[#07070a]/30 text-zinc-500 hover:border-white/[0.08]'
+                      ? 'border-devil/45 bg-devil/10 text-rose-100 shadow-glow-devil'
+                      : 'border-line bg-surface/55 text-text-mute hover:border-line-strong'
                   }`}
                 >
                   {selectedTone === 'devil' && (
                     <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
                   )}
                   <div className="flex items-center gap-2.5 mb-2.5">
-                    <Flame className={`h-4.5 w-4.5 ${selectedTone === 'devil' ? 'text-rose-400' : 'text-zinc-700'}`} />
-                    <span className="text-[11px] font-sans font-bold tracking-[0.15em] uppercase">악마의 속삭임</span>
+                    <Flame className={`h-4.5 w-4.5 ${selectedTone === 'devil' ? 'text-devil fill-devil/25' : 'text-text-faint'}`} />
+                    <span className="text-caption font-bold tracking-[0.15em] uppercase">악마의 속삭임</span>
                   </div>
-                  <p className="text-[10px] font-light leading-relaxed text-zinc-400/80 text-left font-serif">
+                  <p className="text-caption leading-relaxed text-text-body font-serif">
                     팩트를 짚는 현실 자각, 감성을 배제한 칼날 같은 이성의 돌파구.
                   </p>
                 </button>
@@ -661,8 +709,9 @@ export default function Home() {
             <button
               onClick={handleSubmitConfession}
               disabled={isLoading || !writingContent.trim()}
-              className="w-full py-4.5 rounded-2xl bg-zinc-100 text-zinc-950 font-sans font-bold text-xs tracking-[0.3em] uppercase hover:bg-amber-500 hover:text-zinc-950 hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] disabled:opacity-30 disabled:hover:bg-zinc-100 disabled:hover:text-zinc-950 disabled:hover:shadow-none transition-all duration-500"
+              className="w-full h-14 rounded-full bg-gradient-to-r from-flame via-flame-deep to-flame-ember text-on-flame font-sans font-bold text-caption tracking-[0.28em] uppercase shadow-glow-flame-strong hover:brightness-110 disabled:bg-surface-raised disabled:bg-none disabled:text-text-faint disabled:shadow-none disabled:hover:brightness-100 transition-all duration-300 flex items-center justify-center gap-2"
             >
+              {isLoading && <span className="h-4 w-4 rounded-full border-2 border-on-flame/60 border-t-transparent animate-spin" aria-hidden />}
               {isLoading ? '재로 산화시키는 중...' : '고해 제단에 바쳐 연소하기'}
             </button>
           </motion.div>
@@ -671,19 +720,18 @@ export default function Home() {
         {/* VIEW 3: 본당 피드 (CATHEDRAL) - 플로팅 3D 카드뷰 */}
         {view === 'CATHEDRAL' && (
           <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            {...viewMotion}
             className="space-y-8"
           >
-            <div className="flex items-end justify-between border-b border-white/[0.03] pb-5">
+            <div className="flex items-end justify-between border-b border-line pb-5 bg-[radial-gradient(circle_at_top_left,rgba(255,196,107,0.08),transparent_38%)]">
               <div>
-                <h3 className="font-serif text-3xl text-[#fafafa] font-bold tracking-widest">본당 회랑</h3>
-                <p className="text-[11px] font-sans font-light text-zinc-500 tracking-[0.2em] uppercase mt-0.5">Cathedral Feed</p>
+                <h3 className="font-serif text-title text-text-hi">본당 회랑</h3>
+                <p className="text-caption text-text-mute tracking-[0.2em] uppercase mt-1">Cathedral Feed</p>
               </div>
               <button 
                 onClick={loadDataForCurrentView}
                 disabled={isLoading}
-                className="p-2.5 rounded-xl border border-white/[0.04] bg-[#07070a]/40 text-zinc-400 hover:text-zinc-100 hover:border-white/[0.1] disabled:opacity-50 transition-all shadow-inner"
+                className="h-11 w-11 rounded-full border border-line bg-surface/70 text-text-mute hover:text-text-hi hover:border-line-strong disabled:opacity-50 transition-all shadow-card flex items-center justify-center"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
@@ -701,14 +749,14 @@ export default function Home() {
 
             {isLoading && confessions.length === 0 ? (
               <div className="py-24 text-center space-y-4">
-                <div className="h-6 w-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-xs font-light text-zinc-600 tracking-widest animate-pulse">피드의 불을 지피는 중...</p>
+                <div className="h-6 w-6 border-2 border-flame border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-caption text-text-faint tracking-widest animate-pulse">피드의 불을 지피는 중...</p>
               </div>
             ) : confessions.length === 0 ? (
-              <div className="py-24 text-center space-y-4 rounded-3xl border border-white/[0.03] bg-[#07070a]/20 backdrop-blur-xl px-8 shadow-inner">
-                <HelpCircle className="h-10 w-10 text-zinc-800 mx-auto" />
-                <p className="text-sm font-serif font-light text-zinc-400">아직 타오르는 고민이 없습니다.</p>
-                <p className="text-[11px] font-sans font-light text-zinc-600 tracking-wider">
+              <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-line bg-[linear-gradient(135deg,rgba(255,255,255,0.03)_0_25%,transparent_25%_50%,rgba(255,255,255,0.03)_50%_75%,transparent_75%)] bg-[length:18px_18px] px-8">
+                <HelpCircle className="h-10 w-10 text-text-faint mx-auto" />
+                <p className="text-sm font-serif text-text-body">아직 타오르는 고민이 없습니다.</p>
+                <p className="text-caption text-text-faint tracking-wider">
                   고해실로 이동하여 마음의 응어리를 최초로 태워 보세요.
                 </p>
               </div>
@@ -722,35 +770,36 @@ export default function Home() {
                     <motion.div 
                       key={c.id}
                       layout
-                      initial={{ opacity: 0, y: 15 }}
+                      initial={motionReduced ? false : { opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.1, type: 'spring', stiffness: 100 }}
-                      className="relative rounded-3xl border border-white/[0.04] bg-[#07070a]/40 backdrop-blur-2xl p-6 flex flex-col justify-between gap-6 hover:border-white/[0.08] hover:shadow-[0_15px_30px_rgba(0,0,0,0.6)] border-shimmering transition-all duration-500"
+                      transition={{ delay: motionReduced ? 0 : Math.min(idx, 5) * 0.06, duration: 0.35, ease: [0.22, 1, 0.36, 1] as const }}
+                      className="relative rounded-[24px] border border-line bg-surface/70 backdrop-blur-xl p-6 flex flex-col justify-between gap-6 hover:border-line-strong hover:shadow-card transition-all duration-300 overflow-hidden"
                     >
+                      <div className={`absolute left-0 top-5 bottom-5 w-[2px] rounded-full ${c.tone === 'angel' ? 'bg-cyan-300/70' : 'bg-devil/70'}`} aria-hidden />
                       {/* 카드 헤더 */}
-                      <div className="flex justify-between items-center text-[10px] text-zinc-500 font-light border-b border-white/[0.03] pb-3.5">
+                      <div className="flex justify-between items-center text-caption text-text-mute border-b border-line pb-3.5 gap-4">
                         <span className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full blur-[1px] ${c.tone === 'angel' ? 'bg-cyan-400 animate-pulse' : 'bg-rose-500 animate-pulse'}`} />
-                          <span className="font-sans font-medium tracking-wider">{c.authorName}</span>
+                          <span className={`w-2 h-2 rounded-full ${c.tone === 'angel' ? 'bg-cyan-300' : 'bg-devil'}`} />
+                          <span className="font-sans font-medium tracking-wider break-keep">{c.authorName}</span>
                           {isAuthor && (
-                            <span className="text-[9px] font-sans font-bold text-amber-500 tracking-wider bg-amber-950/40 border border-amber-900/50 px-2 py-0.5 rounded-full uppercase">나</span>
+                            <span className="text-[9px] font-sans font-bold text-on-flame tracking-wider bg-flame px-2 py-0.5 rounded-full uppercase">나</span>
                           )}
                         </span>
-                        <span className="flex items-center gap-1.5 text-zinc-500 font-sans">
-                          <Clock className="h-3 w-3 text-zinc-600" />
+                        <span className="flex items-center gap-1.5 text-text-mute font-sans text-right break-keep">
+                          <Clock className="h-3 w-3 text-text-faint" />
                           {getRemainingTimeText(c.expiresAt)}
                         </span>
                       </div>
 
                       {/* 고민 본문 */}
-                      <p className="text-sm font-serif font-light leading-relaxed text-zinc-200 whitespace-pre-wrap break-all pr-2">
+                      <p className="text-sm font-serif leading-relaxed text-text-hi whitespace-pre-wrap break-keep pr-2">
                         {c.content}
                       </p>
 
                       {/* 촛불 버튼 및 상세 안내 */}
-                      <div className="flex justify-between items-center border-t border-white/[0.03] pt-4 mt-2">
-                        <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-light font-serif">
-                          <Info className="h-3.5 w-3.5 text-zinc-700" />
+                      <div className="flex justify-between items-center border-t border-line pt-4 mt-2 gap-4">
+                        <div className="flex items-center gap-1.5 text-caption text-text-mute font-serif break-keep">
+                          <Info className="h-3.5 w-3.5 text-text-faint shrink-0" />
                           <span>5촛불 획득 시 벽화에 영원히 박제됩니다</span>
                         </div>
 
@@ -774,19 +823,18 @@ export default function Home() {
         {/* VIEW 4: 스테인드글라스 벽 (STAINED_GLASS) - 다각형 모자이크 조각 그리드 */}
         {view === 'STAINED_GLASS' && (
           <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            {...viewMotion}
             className="space-y-8"
           >
-            <div className="flex items-end justify-between border-b border-white/[0.03] pb-5">
+            <div className="flex items-end justify-between border-b border-line pb-5">
               <div>
-                <h3 className="font-serif text-3xl text-[#fafafa] font-bold tracking-widest">스테인드글라스 벽</h3>
-                <p className="text-[11px] font-sans font-light text-zinc-500 tracking-[0.2em] uppercase mt-0.5">Stained Glass Gallery</p>
+                <h3 className="font-serif text-title text-text-hi">스테인드글라스 벽</h3>
+                <p className="text-caption text-text-mute tracking-[0.2em] uppercase mt-1">Stained Glass Gallery</p>
               </div>
               <button 
                 onClick={loadDataForCurrentView}
                 disabled={isLoading}
-                className="p-2.5 rounded-xl border border-white/[0.04] bg-[#07070a]/40 text-zinc-400 hover:text-zinc-100 hover:border-white/[0.1] disabled:opacity-50 transition-all shadow-inner"
+                className="h-11 w-11 rounded-full border border-line bg-surface/70 text-text-mute hover:text-text-hi hover:border-line-strong disabled:opacity-50 transition-all shadow-card flex items-center justify-center"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
@@ -794,49 +842,53 @@ export default function Home() {
 
             {isLoading && stainedGlass.length === 0 ? (
               <div className="py-24 text-center space-y-4">
-                <div className="h-6 w-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-xs font-light text-zinc-600 tracking-widest animate-pulse">유리 벽화 조각을 깎는 중...</p>
+                <div className="h-6 w-6 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-caption text-text-faint tracking-widest animate-pulse">유리 벽화 조각을 깎는 중...</p>
               </div>
             ) : stainedGlass.length === 0 ? (
-              <div className="py-24 text-center space-y-4 rounded-3xl border border-white/[0.03] bg-[#07070a]/20 backdrop-blur-xl px-8 shadow-inner">
-                <Grid className="h-10 w-10 text-zinc-800 mx-auto animate-pulse" />
-                <p className="text-sm font-serif font-light text-zinc-400">박제된 사연이 아직 없습니다.</p>
-                <p className="text-[11px] font-sans font-light text-zinc-600 tracking-wide leading-relaxed">
+              <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-line bg-[linear-gradient(135deg,rgba(255,255,255,0.03)_0_25%,transparent_25%_50%,rgba(255,255,255,0.03)_50%_75%,transparent_75%)] bg-[length:18px_18px] px-8">
+                <Grid className="h-10 w-10 text-text-faint mx-auto" />
+                <p className="text-sm font-serif text-text-body">박제된 사연이 아직 없습니다.</p>
+                <p className="text-caption text-text-faint tracking-wide leading-relaxed">
                   본당의 글에 5개 이상의 촛불을 켜주세요.<br />
                   이 벽면에 영롱한 빛을 내는 조각으로 기록됩니다.
                 </p>
               </div>
             ) : (
-              // Dribbble Voronoi Grid
-              <div className="grid grid-cols-2 gap-x-2 gap-y-4 sm:grid-cols-3 sm:gap-x-3 sm:gap-y-6">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {stainedGlass.map((c, index) => {
                   const meta = getGlassLayout(index, c.candles, c.id);
                   
                   return (
                     <motion.div
                       key={c.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${c.authorName}의 스테인드글라스 사연 열기`}
                       onClick={() => setSelectedStainedConfession(c)}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: meta.delay, duration: 0.5 }}
-                      className={`relative aspect-[5/6] bg-gradient-to-br border cursor-pointer hover:scale-[1.05] hover:z-10 hover:shadow-2xl transition-all duration-500 p-5 flex flex-col justify-between ${meta.clipClass} ${meta.colorStyle}`}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelectedStainedConfession(c);
+                        }
+                      }}
+                      initial={motionReduced ? false : { opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: motionReduced ? 0 : meta.delay, duration: 0.4, ease: [0.22, 1, 0.36, 1] as const }}
+                      className={`glass-lancet relative aspect-[3/4] odd:mt-4 sm:odd:mt-6 bg-gradient-to-b cursor-pointer transition-all duration-[400ms] hover:z-10 hover:scale-[1.02] hover:brightness-115 p-4 pt-6 flex flex-col justify-between focus:outline-none focus-visible:ring-2 focus-visible:ring-flame/60 ${meta.colorStyle}`}
                     >
-                      {/* 다각형 내 오로라 반사광 */}
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-white/15 to-transparent pointer-events-none" />
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgb(244_239_230/0.22),transparent_60%)]" />
 
-                      <div className="flex justify-between items-center text-[9px] font-sans font-bold tracking-widest opacity-80">
-                        <span>STAINED</span>
-                        <span className="flex items-center gap-0.5 bg-black/40 px-1.5 py-0.5 rounded-full border border-white/5">
-                          <Flame className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />
-                          {c.candles}
-                        </span>
+                      <div className="relative z-10 mx-auto flex h-6 items-center gap-1 rounded-full border border-line bg-crypt/60 px-2.5 text-caption tabular-nums">
+                        <Flame className="h-3 w-3 text-flame fill-flame" />
+                        {c.candles}
                       </div>
 
-                      <p className="text-xs font-serif font-light leading-relaxed line-clamp-4 overflow-hidden mb-3 pr-1 tracking-wide italic select-none">
-                        "{c.content}"
+                      <p className="relative z-10 line-clamp-4 overflow-hidden break-keep font-serif text-caption italic leading-relaxed">
+                        &ldquo;{c.content}&rdquo;
                       </p>
 
-                      <div className="text-[9px] font-sans font-light opacity-50 text-right tracking-wide">
+                      <div className="relative z-10 text-center text-overline opacity-70">
                         {c.authorName}
                       </div>
                     </motion.div>
@@ -850,19 +902,18 @@ export default function Home() {
         {/* VIEW 5: 편지함 (LETTER_BOX) - 3D 편지봉투 테마 */}
         {view === 'LETTER_BOX' && (
           <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            {...viewMotion}
             className="space-y-8"
           >
-            <div className="flex items-end justify-between border-b border-white/[0.03] pb-5">
+            <div className="flex items-end justify-between border-b border-line pb-5">
               <div>
-                <h3 className="font-serif text-3xl text-[#fafafa] font-bold tracking-widest">나의 편지함</h3>
-                <p className="text-[11px] font-sans font-light text-zinc-500 tracking-[0.2em] uppercase mt-0.5">Your Letters</p>
+                <h3 className="font-serif text-title text-text-hi">나의 편지함</h3>
+                <p className="text-caption text-text-mute tracking-[0.2em] uppercase mt-1">Your Letters</p>
               </div>
               <button 
                 onClick={loadDataForCurrentView}
                 disabled={isLoading}
-                className="p-2.5 rounded-xl border border-white/[0.04] bg-[#07070a]/40 text-zinc-400 hover:text-zinc-100 hover:border-white/[0.1] disabled:opacity-50 transition-all shadow-inner"
+                className="h-11 w-11 rounded-full border border-line bg-surface/70 text-text-mute hover:text-text-hi hover:border-line-strong disabled:opacity-50 transition-all shadow-card flex items-center justify-center"
                 title="편지함 동기화"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -880,11 +931,11 @@ export default function Home() {
             )}
 
             {/* 5분 사유의 시간 안내 상자 */}
-            <div className="bg-[#09090e]/40 border border-white/[0.03] rounded-3xl p-5 flex gap-4 text-xs leading-relaxed text-zinc-400 shadow-xl">
-              <Clock className={`h-5 w-5 text-amber-500 shrink-0 mt-0.5 ${motionReduced ? '' : 'animate-pulse'}`} />
+            <div className="bg-surface/70 border border-line rounded-[24px] p-5 flex gap-4 text-caption leading-relaxed text-text-body shadow-card">
+              <Clock className="h-5 w-5 text-flame shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <span className="text-zinc-200 font-bold block text-[13px] tracking-wide font-serif">5분, 번뇌가 정화되는 시간</span>
-                <p className="font-serif font-light text-zinc-400">
+                <span className="text-text-hi font-bold block text-[13px] tracking-wide font-serif">5분, 번뇌가 정화되는 시간</span>
+                <p className="font-serif text-text-body">
                   고해를 불꽃으로 정화시킨 시점으로부터 5분의 성찰이 흐른 뒤 답장이 봉투에 배달됩니다. 성당에 침묵이 차오르는 시간을 온전히 만끽하세요.
                 </p>
               </div>
@@ -892,20 +943,20 @@ export default function Home() {
 
             {isLoading && replies.length === 0 && pendingReplies.length === 0 ? (
               <div className="py-24 text-center space-y-4">
-                <div className="h-6 w-6 border-2 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-xs font-light text-zinc-600 tracking-widest animate-pulse">우체통 비우는 중...</p>
+                <div className="h-6 w-6 border-2 border-devil border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-caption text-text-faint tracking-widest animate-pulse">우체통 비우는 중...</p>
               </div>
             ) : replies.length === 0 && pendingReplies.length === 0 ? (
-              <div className="py-24 text-center space-y-4 rounded-3xl border border-white/[0.03] bg-[#07070a]/20 backdrop-blur-xl px-8 shadow-inner">
-                <Mail className="h-10 w-10 text-zinc-800 mx-auto" />
-                <p className="text-sm font-serif font-light text-zinc-400">도착한 편지함이 고요합니다.</p>
-                <p className="text-[11px] font-sans font-light text-zinc-600 tracking-wide leading-relaxed">
+              <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-line bg-[linear-gradient(135deg,rgba(255,255,255,0.03)_0_25%,transparent_25%_50%,rgba(255,255,255,0.03)_50%_75%,transparent_75%)] bg-[length:18px_18px] px-8">
+                <Mail className="h-10 w-10 text-text-faint mx-auto" />
+                <p className="text-sm font-serif text-text-body">도착한 편지함이 고요합니다.</p>
+                <p className="text-caption text-text-faint tracking-wide leading-relaxed">
                   고해를 태우면 이곳에 봉인된 편지가 먼저 나타납니다.<br />
                   5분 뒤 자동으로 개봉할 수 있습니다.
                 </p>
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 {pendingReplies.map((p) => (
                   <SealedLetterCard
                     key={p.id}
@@ -939,42 +990,50 @@ export default function Home() {
         {/* VIEW 6: 설정 (SETTINGS) - 드리블 다크 미학형 설정 리스트 */}
         {view === 'SETTINGS' && (
           <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
+            {...viewMotion}
             className="space-y-8"
           >
-            <div className="border-b border-white/[0.03] pb-5">
-              <h3 className="font-serif text-3xl text-[#fafafa] font-bold tracking-widest">성당 비축고</h3>
-              <p className="text-[11px] font-sans font-light text-zinc-500 tracking-[0.2em] uppercase mt-0.5">Atmosphere Configuration</p>
+            <div className="border-b border-line pb-5">
+              <p className="text-caption text-flame tracking-[0.28em] uppercase mb-2">성소 설정</p>
+              <h3 className="font-serif text-title text-text-hi">성당 비축고</h3>
+              <p className="text-caption text-text-mute tracking-[0.2em] uppercase mt-1">Atmosphere Configuration</p>
             </div>
 
-            <div className="rounded-3xl border border-white/[0.04] bg-[#07070a]/40 backdrop-blur-2xl divide-y divide-white/[0.03] overflow-hidden shadow-2xl">
+            <div className="rounded-[24px] border border-line bg-surface/70 backdrop-blur-xl divide-y divide-line overflow-hidden shadow-card">
               
               {/* BGM 제어 */}
               <div className="p-6 space-y-4">
                 <div className="flex justify-between items-center">
                   <div className="space-y-1">
-                    <label className="text-sm text-zinc-200 font-serif font-medium flex items-center gap-2.5">
-                      <Music className="h-4.5 w-4.5 text-zinc-500" />
+                    <label className="text-sm text-text-hi font-serif font-medium flex items-center gap-2.5">
+                      <Music className="h-4.5 w-4.5 text-text-mute" />
                       로파이 앰비언스 루프
                     </label>
-                    <p className="text-[10px] text-zinc-500 font-light font-sans">
+                    <p className="text-caption text-text-mute font-sans">
                       성당 내부의 아늑한 음향 환경을 활성화합니다.
                     </p>
                   </div>
                   <button 
                     onClick={toggleBGM}
-                    className={`text-[10px] font-sans font-bold tracking-widest px-4 py-2 rounded-full transition-all uppercase ${
-                      audioPlaying 
-                        ? 'bg-amber-950/30 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]'
-                        : 'bg-zinc-900/60 text-zinc-600 border border-zinc-800'
+                    role="switch"
+                    aria-checked={audioPlaying}
+                    className={`relative h-8 w-14 rounded-full border transition-all shrink-0 ${
+                      audioPlaying
+                        ? 'bg-flame/25 border-flame/45 shadow-glow-flame'
+                        : 'bg-surface-raised border-line'
                     }`}
                   >
-                    {audioPlaying ? 'PLAYING' : 'MUTED'}
+                    <span
+                      className={`absolute left-0 top-1 h-6 w-6 rounded-full transition-transform ${
+                        audioPlaying ? 'translate-x-6 bg-flame' : 'translate-x-1 bg-text-faint'
+                      }`}
+                    />
+                    <span className="sr-only">{audioPlaying ? '재생 중' : '꺼짐'}</span>
                   </button>
                 </div>
+                <div className="text-caption text-text-mute text-right">{audioPlaying ? '재생 중' : '꺼짐'}</div>
                 <div className="flex items-center gap-4 pt-1">
-                  <span className="text-zinc-600"><VolumeX className="h-4 w-4" /></span>
+                  <span className="text-text-faint"><VolumeX className="h-4 w-4" /></span>
                   <input 
                     type="range" 
                     min="0" 
@@ -982,42 +1041,50 @@ export default function Home() {
                     step="0.05"
                     value={audioVolume}
                     onChange={handleVolumeChange}
-                    className="flex-1 h-[4px] bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500 outline-none"
+                    className="flex-1 h-[4px] bg-surface-raised rounded-lg appearance-none cursor-pointer accent-[#ffc46b] outline-none"
                   />
-                  <span className="text-zinc-600"><Volume2 className="h-4 w-4" /></span>
+                  <span className="text-text-faint"><Volume2 className="h-4 w-4" /></span>
                 </div>
               </div>
 
               {/* 접근성 제어 */}
               <div className="p-6 flex justify-between items-center">
                 <div className="space-y-1 pr-6">
-                  <label className="text-sm text-zinc-200 font-serif font-medium flex items-center gap-2.5">
-                    <Sparkles className="h-4.5 w-4.5 text-zinc-500" />
+                  <label className="text-sm text-text-hi font-serif font-medium flex items-center gap-2.5">
+                    <Sparkles className="h-4.5 w-4.5 text-text-mute" />
                     애니메이션 간소화 (Reduced Motion)
                   </label>
-                  <p className="text-[10px] text-zinc-500 font-light leading-relaxed">
+                  <p className="text-caption text-text-mute leading-relaxed">
                     불꽃 연소 및 글로우 등 물리 연산을 줄여 하드웨어의 배터리를 보존하고 시각 편의를 제공합니다.
                   </p>
+                  <p className="text-caption text-text-mute">{reducedMotion ? '간소화됨' : '전체 모션'}</p>
                 </div>
                 <button
                   onClick={toggleReducedMotion}
-                  className={`text-[10px] font-sans font-bold tracking-widest px-4 py-2 rounded-full transition-all shrink-0 ${
-                    reducedMotion 
-                      ? 'bg-white text-zinc-950 font-bold'
-                      : 'bg-zinc-900/60 text-zinc-600 border border-zinc-800'
+                  role="switch"
+                  aria-checked={reducedMotion}
+                  className={`relative h-8 w-14 rounded-full border transition-all shrink-0 ${
+                    reducedMotion
+                      ? 'bg-text-hi/20 border-text-hi/40'
+                      : 'bg-surface-raised border-line'
                   }`}
                 >
-                  {reducedMotion ? 'REDUCED' : 'ACTIVE'}
+                  <span
+                    className={`absolute left-0 top-1 h-6 w-6 rounded-full transition-transform ${
+                      reducedMotion ? 'translate-x-6 bg-text-hi' : 'translate-x-1 bg-text-faint'
+                    }`}
+                  />
+                  <span className="sr-only">{reducedMotion ? '간소화됨' : '전체 모션'}</span>
                 </button>
               </div>
 
               {/* 익명 토큰 뱃지 */}
               {userSession && (
                 <div className="p-6 space-y-2">
-                  <span className="text-[10px] font-sans font-light text-zinc-500 tracking-wider uppercase block">나의 고유 세션 데이터</span>
-                  <div className="bg-black/40 border border-white/[0.03] p-4 rounded-2xl space-y-1">
-                    <span className="text-xs text-zinc-300 font-serif font-bold block">식별자: {userSession.name}</span>
-                    <span className="text-[9px] text-zinc-600 font-mono tracking-wider block break-all">
+                  <span className="text-caption font-sans text-text-mute tracking-wider uppercase block">나의 고유 세션 데이터</span>
+                  <div className="bg-crypt/50 border border-line p-4 rounded-[18px] space-y-1">
+                    <span className="text-sm text-text-hi font-serif font-bold block">식별자: {userSession.name}</span>
+                    <span className="text-[10px] text-text-faint font-mono tracking-wider block break-all">
                       TOKEN: {userSession.id}
                     </span>
                   </div>
@@ -1025,8 +1092,8 @@ export default function Home() {
               )}
 
               {/* 프라이버시 조항 */}
-              <div className="p-6 text-[10px] text-zinc-500 font-serif font-light leading-relaxed space-y-2">
-                <span className="block font-bold text-zinc-400 mb-1 tracking-wider uppercase">개인정보 취급 & 소멸 규정</span>
+              <div className="p-6 text-caption text-text-mute font-serif leading-relaxed space-y-2">
+                <span className="block font-bold text-text-body mb-1 tracking-wider uppercase">개인정보 취급 & 소멸 규정</span>
                 <p>• 네온 성당은 회원가입을 지원하지 않으며, 클라이언트 쿠키 토큰은 오직 익명 식별을 위한 용도로만 브라우저 내에 국한되어 보관됩니다.</p>
                 <p>• 태워진 고해 글은 24시간의 노출 기한 경과 시 데이터베이스에서 하드 삭제(Hard-Delete) 처리되며 어떠한 백업본도 남겨두지 않습니다.</p>
                 <p>• 단, 5촛불 이상의 깊은 공감을 달성하여 '스테인드글라스 벽화'로 보존 판정을 받은 흔적은 이 공간에 예술 조각으로 영원히 보존됩니다.</p>
@@ -1041,50 +1108,50 @@ export default function Home() {
       {/* 하단 둥글고 세련된 플로팅 글래스 네비게이션 바 */}
       {view !== 'ENTRANCE' && (
         <motion.nav 
-          initial={{ y: 50, opacity: 0 }}
+          initial={motionReduced ? false : { y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 90, damping: 14, delay: 0.1 }}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-sm w-[calc(100%-2rem)] rounded-3xl backdrop-blur-3xl bg-[#07070a]/75 border border-white/[0.04] py-3.5 px-6 flex justify-between items-center shadow-[0_30px_60px_rgba(0,0,0,0.8),_inset_0_1px_0_rgba(255,255,255,0.05)]"
+          transition={motionReduced ? { duration: 0 } : { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const, delay: 0.1 }}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 h-[68px] max-w-sm w-[calc(100%-2rem)] rounded-[24px] backdrop-blur-3xl bg-surface/85 border border-line px-4 flex justify-between items-center shadow-float"
         >
           {/* 고해실 */}
           <button
             onClick={() => setView('CONFESS')}
-            className={`relative flex flex-col items-center gap-1.5 transition-colors ${
-              view === 'CONFESS' ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-300'
+            className={`relative flex min-w-11 min-h-12 flex-col items-center justify-center gap-1.5 transition-colors ${
+              view === 'CONFESS' ? 'text-flame' : 'text-text-mute hover:text-text-hi'
             }`}
           >
-            <PenTool className="h-4.5 w-4.5" />
-            <span className="text-[9px] font-sans font-medium tracking-wide">제단</span>
+            <PenTool className="h-5 w-5" />
+            <span className="text-[9px] font-sans font-medium tracking-[0.18em] uppercase">제단</span>
             {view === 'CONFESS' && (
-              <motion.div layoutId="nav-active" className="absolute -bottom-2.5 w-1 h-1 rounded-full bg-amber-400" />
+              <motion.div layoutId="nav-active" className="absolute -top-1.5 w-8 h-1 rounded-full bg-flame shadow-glow-flame" />
             )}
           </button>
 
           {/* 본당 피드 */}
           <button
             onClick={() => setView('CATHEDRAL')}
-            className={`relative flex flex-col items-center gap-1.5 transition-colors ${
-              view === 'CATHEDRAL' ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-300'
+            className={`relative flex min-w-11 min-h-12 flex-col items-center justify-center gap-1.5 transition-colors ${
+              view === 'CATHEDRAL' ? 'text-flame' : 'text-text-mute hover:text-text-hi'
             }`}
           >
-            <Compass className="h-4.5 w-4.5" />
-            <span className="text-[9px] font-sans font-medium tracking-wide">회랑</span>
+            <Compass className="h-5 w-5" />
+            <span className="text-[9px] font-sans font-medium tracking-[0.18em] uppercase">회랑</span>
             {view === 'CATHEDRAL' && (
-              <motion.div layoutId="nav-active" className="absolute -bottom-2.5 w-1 h-1 rounded-full bg-amber-400" />
+              <motion.div layoutId="nav-active" className="absolute -top-1.5 w-8 h-1 rounded-full bg-flame shadow-glow-flame" />
             )}
           </button>
 
           {/* 스테인드글라스 */}
           <button
             onClick={() => setView('STAINED_GLASS')}
-            className={`relative flex flex-col items-center gap-1.5 transition-colors ${
-              view === 'STAINED_GLASS' ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-300'
+            className={`relative flex min-w-11 min-h-12 flex-col items-center justify-center gap-1.5 transition-colors ${
+              view === 'STAINED_GLASS' ? 'text-flame' : 'text-text-mute hover:text-text-hi'
             }`}
           >
-            <Grid className="h-4.5 w-4.5" />
-            <span className="text-[9px] font-sans font-medium tracking-wide">벽화</span>
+            <Grid className="h-5 w-5" />
+            <span className="text-[9px] font-sans font-medium tracking-[0.18em] uppercase">벽화</span>
             {view === 'STAINED_GLASS' && (
-              <motion.div layoutId="nav-active" className="absolute -bottom-2.5 w-1 h-1 rounded-full bg-amber-400" />
+              <motion.div layoutId="nav-active" className="absolute -top-1.5 w-8 h-1 rounded-full bg-flame shadow-glow-flame" />
             )}
           </button>
 
@@ -1092,44 +1159,44 @@ export default function Home() {
           <button
             onClick={() => setView('LETTER_BOX')}
             aria-label={unreadCount > 0 ? `서신, 미읽음 ${unreadCount}건` : '서신'}
-            className={`relative flex flex-col items-center gap-1.5 transition-colors ${
-              view === 'LETTER_BOX' ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-300'
+            className={`relative flex min-w-11 min-h-12 flex-col items-center justify-center gap-1.5 transition-colors ${
+              view === 'LETTER_BOX' ? 'text-flame' : 'text-text-mute hover:text-text-hi'
             }`}
           >
             <span className="relative">
-              <Mail className="h-4.5 w-4.5" />
+              <Mail className="h-5 w-5" />
               {unreadCount === 1 && (
                 <span
                   aria-hidden="true"
-                  className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-[#07070a]/75"
+                  className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-flame ring-2 ring-surface"
                 />
               )}
               {unreadCount >= 2 && (
                 <span
                   aria-hidden="true"
-                  className="absolute -top-1.5 -right-2.5 flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-zinc-950"
+                  className="absolute -top-1.5 -right-2.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-flame px-1 text-[9px] font-bold text-on-flame ring-2 ring-surface"
                 >
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
             </span>
-            <span className="text-[9px] font-sans font-medium tracking-wide">서신</span>
+            <span className="text-[9px] font-sans font-medium tracking-[0.18em] uppercase">서신</span>
             {view === 'LETTER_BOX' && (
-              <motion.div layoutId="nav-active" className="absolute -bottom-2.5 w-1 h-1 rounded-full bg-amber-400" />
+              <motion.div layoutId="nav-active" className="absolute -top-1.5 w-8 h-1 rounded-full bg-flame shadow-glow-flame" />
             )}
           </button>
 
           {/* 설정 */}
           <button
             onClick={() => setView('SETTINGS')}
-            className={`relative flex flex-col items-center gap-1.5 transition-colors ${
-              view === 'SETTINGS' ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-300'
+            className={`relative flex min-w-11 min-h-12 flex-col items-center justify-center gap-1.5 transition-colors ${
+              view === 'SETTINGS' ? 'text-flame' : 'text-text-mute hover:text-text-hi'
             }`}
           >
-            <SettingsIcon className="h-4.5 w-4.5" />
-            <span className="text-[9px] font-sans font-medium tracking-wide">비축</span>
+            <SettingsIcon className="h-5 w-5" />
+            <span className="text-[9px] font-sans font-medium tracking-[0.18em] uppercase">비축</span>
             {view === 'SETTINGS' && (
-              <motion.div layoutId="nav-active" className="absolute -bottom-2.5 w-1 h-1 rounded-full bg-amber-400" />
+              <motion.div layoutId="nav-active" className="absolute -top-1.5 w-8 h-1 rounded-full bg-flame shadow-glow-flame" />
             )}
           </button>
 
@@ -1139,47 +1206,55 @@ export default function Home() {
       {/* 모달: 스테인드글라스 라이트박스 */}
       <AnimatePresence>
         {selectedStainedConfession && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stained-glass-dialog-title"
+          >
             <motion.div 
-              initial={{ opacity: 0 }}
+              initial={motionReduced ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedStainedConfession(null)}
-              className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+              className="absolute inset-0 bg-crypt/90 backdrop-blur-xl"
             />
             
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 15 }}
+              initial={motionReduced ? false : { opacity: 0, scale: 0.96, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 15 }}
-              className="relative w-full max-w-md rounded-3xl border border-white/[0.05] bg-gradient-to-br from-[#0c0c10] to-[#040406] p-6 space-y-6 shadow-2xl z-10 overflow-hidden"
+              exit={motionReduced ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 15 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] as const }}
+              className="relative w-full max-w-md rounded-[24px] border border-line bg-gradient-to-br from-surface to-crypt p-6 space-y-6 shadow-float z-10 overflow-hidden"
             >
               {/* 모달 내 앰비언트 백그라운드 오로라 */}
-              <div className="absolute -top-16 -left-16 w-52 h-52 bg-gradient-to-br from-amber-500/10 to-transparent blur-3xl rounded-full pointer-events-none" />
+              <div className={`absolute left-0 top-0 h-1 w-full bg-gradient-to-r ${getGlassLayout(0, selectedStainedConfession.candles, selectedStainedConfession.id).colorStyle}`} aria-hidden />
+              <div className="absolute -top-16 -left-16 w-52 h-52 bg-gradient-to-br from-flame/10 to-transparent blur-3xl rounded-full pointer-events-none" />
 
-              <div className="flex justify-between items-center text-[10px] text-zinc-500 font-light border-b border-white/[0.03] pb-3.5">
-                <span className="flex items-center gap-1.5 font-serif">
-                  <Sparkles className="h-4 w-4 text-amber-500" />
+              <div className="flex justify-between items-center text-caption text-text-mute border-b border-line pb-3.5 gap-3">
+                <span id="stained-glass-dialog-title" className="flex items-center gap-1.5 font-serif">
+                  <Sparkles className="h-4 w-4 text-flame" />
                   보존된 유리의 편린
                 </span>
-                <span className="flex items-center gap-1 text-amber-400 font-sans font-bold bg-amber-950/30 border border-amber-900/50 px-2.5 py-0.5 rounded-full">
-                  <Flame className="h-3 w-3 fill-amber-400" />
+                <span className="flex items-center gap-1 text-flame font-sans font-bold bg-flame/10 border border-flame/30 px-2.5 py-0.5 rounded-full">
+                  <Flame className="h-3 w-3 fill-flame" />
                   {selectedStainedConfession.candles} 촛불 공감
                 </span>
               </div>
 
               <div className="space-y-4">
-                <p className="text-base font-serif font-light leading-relaxed text-zinc-200 whitespace-pre-wrap tracking-wide italic pr-2">
-                  "{selectedStainedConfession.content}"
+                <p className="text-base font-serif leading-relaxed text-text-hi whitespace-pre-wrap tracking-wide italic pr-2">
+                  {selectedStainedConfession.content}
                 </p>
-                <div className="flex justify-end text-xs font-serif font-light text-zinc-500">
+                <div className="flex justify-end text-xs font-serif text-text-mute">
                   — {selectedStainedConfession.authorName}의 사유
                 </div>
               </div>
 
               <button
+                ref={closeStainedDialogButtonRef}
                 onClick={() => setSelectedStainedConfession(null)}
-                className="w-full py-3.5 rounded-2xl bg-zinc-900/50 text-zinc-300 font-sans font-semibold text-xs tracking-wider border border-white/[0.04] hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                className="w-full py-3.5 rounded-full bg-surface-raised text-text-body font-sans font-semibold text-caption tracking-wider border border-line hover:border-line-strong hover:text-text-hi transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-flame/60"
               >
                 갤러리로 돌아가기
               </button>
