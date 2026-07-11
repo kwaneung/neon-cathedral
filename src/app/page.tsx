@@ -1,19 +1,24 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   submitConfessionAction, 
   toggleCandleAction, 
   getFeedConfessionsAction, 
-  getUserRepliesAction, 
+  getUserRepliesAction,
+  getPendingRepliesAction,
+  markReplyAsReadAction,
+  getUnreadReplyCountAction,
   getStainedGlassAction, 
   getCurrentUserSession 
 } from './actions';
 import { getLofiSynth } from '@/lib/audio';
-import { Confession, Reply } from '@/lib/db';
+import { Confession, Reply, PendingReply } from '@/lib/db';
 import { UserSession } from '@/lib/session';
 import { CandleButton } from '@/components/CandleButton';
 import { BurnEffect } from '@/components/BurnEffect';
+import { LetterCountdownBanner } from '@/components/LetterCountdownBanner';
+import { SealedLetterCard } from '@/components/SealedLetterCard';
 import { 
   Flame, 
   PenTool, 
@@ -30,8 +35,6 @@ import {
   Clock, 
   HelpCircle,
   Lock,
-  Eye,
-  ChevronRight,
   Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -47,6 +50,8 @@ export default function Home() {
   const [confessions, setConfessions] = useState<Confession[]>([]);
   const [stainedGlass, setStainedGlass] = useState<Confession[]>([]);
   const [replies, setReplies] = useState<Reply[]>([]);
+  const [pendingReplies, setPendingReplies] = useState<PendingReply[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   
   // 입력 상태
   const [writingContent, setWritingContent] = useState('');
@@ -60,14 +65,31 @@ export default function Home() {
   const [audioVolume, setAudioVolume] = useState(0.3);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   
   // UI 피드백 및 로딩 상태
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [arrivalToastVisible, setArrivalToastVisible] = useState(false);
   const [selectedStainedConfession, setSelectedStainedConfession] = useState<Confession | null>(null);
 
-  const pollingTimerRef = useRef<any>(null);
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const notifiedReplyIdsRef = useRef<Set<string>>(new Set());
+  const pendingRepliesRef = useRef<PendingReply[]>([]);
+  const viewRef = useRef(view);
+
+  const motionReduced = reducedMotion || prefersReducedMotion;
+  const earliestPending = pendingReplies[0] ?? null;
+  const hasPending = pendingReplies.length > 0;
+
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
+  useEffect(() => {
+    pendingRepliesRef.current = pendingReplies;
+  }, [pendingReplies]);
 
   // 1. 유저 세션 및 설정 로드
   useEffect(() => {
@@ -75,6 +97,17 @@ export default function Home() {
       try {
         const session = await getCurrentUserSession();
         setUserSession(session);
+        const [pending, arrived, unread] = await Promise.all([
+          getPendingRepliesAction(),
+          getUserRepliesAction(),
+          getUnreadReplyCountAction(),
+        ]);
+        for (const reply of arrived) {
+          if (!reply.isRead) notifiedReplyIdsRef.current.add(reply.id);
+        }
+        setPendingReplies(pending);
+        setReplies(arrived);
+        setUnreadCount(unread);
       } catch (e) {
         console.error('Failed to load session:', e);
       }
@@ -85,6 +118,12 @@ export default function Home() {
     if (localMotion === 'true') {
       setReducedMotion(true);
     }
+
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mq.matches);
+    const onMotionChange = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mq.addEventListener('change', onMotionChange);
+    return () => mq.removeEventListener('change', onMotionChange);
   }, []);
 
   // 2. 오디오 인스턴스 싱크 맞추기
@@ -96,7 +135,88 @@ export default function Home() {
     }
   }, [view]);
 
-  // 3. 뷰가 변경될 때마다 데이터 로드 및 폴링 설정
+  const refreshLetterState = useCallback(async (opts?: { notifyArrival?: boolean }) => {
+    const [pending, arrived, unread] = await Promise.all([
+      getPendingRepliesAction(),
+      getUserRepliesAction(),
+      getUnreadReplyCountAction(),
+    ]);
+
+    if (opts?.notifyArrival) {
+      for (const reply of arrived) {
+        if (!reply.isRead && !notifiedReplyIdsRef.current.has(reply.id)) {
+          notifiedReplyIdsRef.current.add(reply.id);
+          setArrivalToastVisible(true);
+          break;
+        }
+      }
+    }
+
+    setPendingReplies(pending);
+    setReplies(arrived);
+    setUnreadCount(unread);
+    return { pending, arrived, unread };
+  }, []);
+
+  const handleCountdownComplete = useCallback(async () => {
+    await refreshLetterState({ notifyArrival: true });
+  }, [refreshLetterState]);
+
+  const stopPolling = () => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  };
+
+  const loadDataForCurrentView = async () => {
+    setIsLoading(true);
+    try {
+      const currentView = viewRef.current;
+      if (currentView === 'CATHEDRAL') {
+        const data = await getFeedConfessionsAction();
+        setConfessions(data);
+        await refreshLetterState();
+      } else if (currentView === 'STAINED_GLASS') {
+        const data = await getStainedGlassAction();
+        setStainedGlass(data);
+      } else if (currentView === 'LETTER_BOX') {
+        await refreshLetterState();
+      } else {
+        await refreshLetterState();
+      }
+    } catch (e) {
+      console.error('Failed to load view data:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+    const intervalMs = pendingRepliesRef.current.length > 0 ? 30000 : 60000;
+
+    pollingTimerRef.current = setInterval(async () => {
+      try {
+        const currentView = viewRef.current;
+        await refreshLetterState({
+          notifyArrival: pendingRepliesRef.current.length > 0,
+        });
+
+        if (currentView === 'CATHEDRAL') {
+          const data = await getFeedConfessionsAction();
+          setConfessions(data);
+        } else if (currentView === 'STAINED_GLASS') {
+          const data = await getStainedGlassAction();
+          setStainedGlass(data);
+        }
+      } catch (e) {
+        console.error('Polling error:', e);
+      }
+    }, intervalMs);
+  }, [refreshLetterState]);
+
+  // 3. 뷰 변경·pending 유무에 따라 데이터 로드 및 적응형 폴링
   useEffect(() => {
     if (view === 'ENTRANCE') {
       stopPolling();
@@ -107,54 +227,14 @@ export default function Home() {
     startPolling();
 
     return () => stopPolling();
-  }, [view]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, hasPending, startPolling]);
 
-  const loadDataForCurrentView = async () => {
-    setIsLoading(true);
-    try {
-      if (view === 'CATHEDRAL') {
-        const data = await getFeedConfessionsAction();
-        setConfessions(data);
-      } else if (view === 'STAINED_GLASS') {
-        const data = await getStainedGlassAction();
-        setStainedGlass(data);
-      } else if (view === 'LETTER_BOX') {
-        const data = await getUserRepliesAction();
-        setReplies(data);
-      }
-    } catch (e) {
-      console.error('Failed to load view data:', e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const startPolling = () => {
-    stopPolling();
-    pollingTimerRef.current = setInterval(async () => {
-      try {
-        if (view === 'CATHEDRAL') {
-          const data = await getFeedConfessionsAction();
-          setConfessions(data);
-        } else if (view === 'LETTER_BOX') {
-          const data = await getUserRepliesAction();
-          setReplies(data);
-        } else if (view === 'STAINED_GLASS') {
-          const data = await getStainedGlassAction();
-          setStainedGlass(data);
-        }
-      } catch (e) {
-        console.error('Polling error:', e);
-      }
-    }, 15000);
-  };
-
-  const stopPolling = () => {
-    if (pollingTimerRef.current) {
-      clearInterval(pollingTimerRef.current);
-      pollingTimerRef.current = null;
-    }
-  };
+  useEffect(() => {
+    if (!arrivalToastVisible) return;
+    const t = window.setTimeout(() => setArrivalToastVisible(false), 4500);
+    return () => window.clearTimeout(t);
+  }, [arrivalToastVisible]);
 
   // 4. 성당 입장 (사운드 락 해제 및 재생 시작)
   const handleEnterCathedral = () => {
@@ -215,15 +295,30 @@ export default function Home() {
       if (res.success) {
         setWritingContent('');
         showSuccess('고민이 불꽃 속으로 완전히 소화(消火)되었습니다.');
+        const pending = await getPendingRepliesAction();
+        setPendingReplies(pending);
         setView('CATHEDRAL');
+        startPolling();
       } else {
         showError(res.error || '고민을 태우는 도중 연소 장애가 발생했습니다.');
       }
-    } catch (e) {
+    } catch (_e) {
       showError('서버 통신에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleOpenReply = async (replyId: string) => {
+    const res = await markReplyAsReadAction(replyId);
+    if (!res.success) {
+      showError('편지를 개봉하지 못했습니다.');
+      throw new Error('mark failed');
+    }
+    setReplies((prev) =>
+      prev.map((r) => (r.id === replyId ? { ...r, isRead: true } : r))
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
   };
 
   const handleVoteSuccess = (confessionId: string, newCandles: number) => {
@@ -362,13 +457,32 @@ export default function Home() {
         )}
         {successMsg && (
           <motion.div 
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            initial={motionReduced ? false : { opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            exit={motionReduced ? undefined : { opacity: 0, y: -20, scale: 0.95 }}
             className="fixed top-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-zinc-900/40 border border-white/[0.06] text-amber-300 px-5 py-3 rounded-2xl text-xs backdrop-blur-xl shadow-2xl"
           >
             <Sparkles className="h-4.5 w-4.5 text-amber-400 shrink-0" />
             <span className="font-light tracking-wide text-zinc-200">{successMsg}</span>
+          </motion.div>
+        )}
+        {arrivalToastVisible && (
+          <motion.div
+            role="status"
+            aria-live="polite"
+            initial={motionReduced ? false : { opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={motionReduced ? undefined : { opacity: 0, y: -20, scale: 0.95 }}
+            onClick={() => {
+              setArrivalToastVisible(false);
+              setView('LETTER_BOX');
+            }}
+            className="fixed top-24 left-1/2 z-50 flex min-h-11 -translate-x-1/2 cursor-pointer items-center gap-3 rounded-2xl border border-white/[0.06] bg-zinc-900/40 px-5 py-3 text-xs text-amber-300 shadow-2xl backdrop-blur-xl"
+          >
+            <Mail className="h-4.5 w-4.5 shrink-0 text-amber-400" />
+            <span className="font-light tracking-wide text-zinc-200">
+              성찰의 시간이 끝났습니다. 편지봉투가 도착했어요.
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -575,6 +689,16 @@ export default function Home() {
               </button>
             </div>
 
+            {earliestPending && (
+              <LetterCountdownBanner
+                sentAt={earliestPending.sentAt}
+                remainingSeconds={earliestPending.remainingSeconds}
+                extraPendingCount={Math.max(0, pendingReplies.length - 1)}
+                reducedMotion={motionReduced}
+                onComplete={handleCountdownComplete}
+              />
+            )}
+
             {isLoading && confessions.length === 0 ? (
               <div className="py-24 text-center space-y-4">
                 <div className="h-6 w-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
@@ -745,9 +869,19 @@ export default function Home() {
               </button>
             </div>
 
+            {earliestPending && (
+              <LetterCountdownBanner
+                sentAt={earliestPending.sentAt}
+                remainingSeconds={earliestPending.remainingSeconds}
+                extraPendingCount={Math.max(0, pendingReplies.length - 1)}
+                reducedMotion={motionReduced}
+                onComplete={handleCountdownComplete}
+              />
+            )}
+
             {/* 5분 사유의 시간 안내 상자 */}
             <div className="bg-[#09090e]/40 border border-white/[0.03] rounded-3xl p-5 flex gap-4 text-xs leading-relaxed text-zinc-400 shadow-xl">
-              <Clock className="h-5 w-5 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
+              <Clock className={`h-5 w-5 text-amber-500 shrink-0 mt-0.5 ${motionReduced ? '' : 'animate-pulse'}`} />
               <div className="space-y-1">
                 <span className="text-zinc-200 font-bold block text-[13px] tracking-wide font-serif">5분, 번뇌가 정화되는 시간</span>
                 <p className="font-serif font-light text-zinc-400">
@@ -756,48 +890,46 @@ export default function Home() {
               </div>
             </div>
 
-            {isLoading && replies.length === 0 ? (
+            {isLoading && replies.length === 0 && pendingReplies.length === 0 ? (
               <div className="py-24 text-center space-y-4">
                 <div className="h-6 w-6 border-2 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto" />
                 <p className="text-xs font-light text-zinc-600 tracking-widest animate-pulse">우체통 비우는 중...</p>
               </div>
-            ) : replies.length === 0 ? (
+            ) : replies.length === 0 && pendingReplies.length === 0 ? (
               <div className="py-24 text-center space-y-4 rounded-3xl border border-white/[0.03] bg-[#07070a]/20 backdrop-blur-xl px-8 shadow-inner">
                 <Mail className="h-10 w-10 text-zinc-800 mx-auto" />
                 <p className="text-sm font-serif font-light text-zinc-400">도착한 편지함이 고요합니다.</p>
                 <p className="text-[11px] font-sans font-light text-zinc-600 tracking-wide leading-relaxed">
-                  고민을 태운 후 5분 뒤에 새로고침 버튼을 터치하시면,<br />
-                  사유의 흔적이 담긴 편지봉투가 이곳에 배송됩니다.
+                  고해를 태우면 이곳에 봉인된 편지가 먼저 나타납니다.<br />
+                  5분 뒤 자동으로 개봉할 수 있습니다.
                 </p>
               </div>
             ) : (
               <div className="space-y-6">
-                {replies.map((r, idx) => (
-                  <motion.div
+                {pendingReplies.map((p) => (
+                  <SealedLetterCard
+                    key={p.id}
+                    id={p.id}
+                    tone={p.tone}
+                    content=""
+                    sentAt={p.sentAt}
+                    isRead={false}
+                    remainingSeconds={p.remainingSeconds}
+                    reducedMotion={motionReduced}
+                    onOpen={handleOpenReply}
+                  />
+                ))}
+                {replies.map((r) => (
+                  <SealedLetterCard
                     key={r.id}
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.1, type: 'spring' }}
-                    className="relative rounded-3xl border border-white/[0.04] bg-[#07070a]/40 backdrop-blur-2xl p-6 shadow-2xl hover:border-white/[0.08] transition-all duration-300"
-                  >
-                    {/* 편지 헤더 */}
-                    <div className="flex justify-between items-center text-[10px] text-zinc-500 font-light border-b border-white/[0.03] pb-3.5 mb-4">
-                      <span className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full blur-[1px] ${r.tone === 'angel' ? 'bg-cyan-400' : 'bg-rose-500'}`} />
-                        <span className="font-sans font-bold tracking-widest uppercase">
-                          {r.tone === 'angel' ? 'Angel\'s comfort' : 'Devil\'s Whisper'}
-                        </span>
-                      </span>
-                      <span className="font-sans text-zinc-600">
-                        {new Date(r.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 전송됨
-                      </span>
-                    </div>
-
-                    {/* 편지 본문 */}
-                    <p className="text-sm font-serif font-light leading-relaxed text-zinc-300 whitespace-pre-wrap tracking-wide">
-                      {r.content}
-                    </p>
-                  </motion.div>
+                    id={r.id}
+                    tone={r.tone}
+                    content={r.content}
+                    sentAt={r.sentAt}
+                    isRead={r.isRead}
+                    reducedMotion={motionReduced}
+                    onOpen={handleOpenReply}
+                  />
                 ))}
               </div>
             )}
@@ -959,11 +1091,28 @@ export default function Home() {
           {/* 편지함 */}
           <button
             onClick={() => setView('LETTER_BOX')}
+            aria-label={unreadCount > 0 ? `서신, 미읽음 ${unreadCount}건` : '서신'}
             className={`relative flex flex-col items-center gap-1.5 transition-colors ${
               view === 'LETTER_BOX' ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <Mail className="h-4.5 w-4.5" />
+            <span className="relative">
+              <Mail className="h-4.5 w-4.5" />
+              {unreadCount === 1 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-[#07070a]/75"
+                />
+              )}
+              {unreadCount >= 2 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-1.5 -right-2.5 flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-zinc-950"
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </span>
             <span className="text-[9px] font-sans font-medium tracking-wide">서신</span>
             {view === 'LETTER_BOX' && (
               <motion.div layoutId="nav-active" className="absolute -bottom-2.5 w-1 h-1 rounded-full bg-amber-400" />
