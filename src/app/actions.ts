@@ -6,9 +6,13 @@ import {
   addReply, 
   addCandle, 
   cleanExpiredConfessions, 
-  getUserReplies, 
+  getUserReplies,
+  getPendingReplies,
+  markReplyAsRead,
+  getUnreadReplyCount,
   Confession, 
   Reply,
+  PendingReply,
   mapDbConfessionToSchema 
 } from '@/lib/db';
 import { generateLetterContent } from '@/lib/letters';
@@ -134,6 +138,45 @@ export async function getUserRepliesAction(): Promise<Reply[]> {
   } catch (error) {
     console.error('Failed to get user replies:', error);
     return [];
+  }
+}
+
+// 4b. 대기 중(봉인) 답장 조회
+export async function getPendingRepliesAction(): Promise<PendingReply[]> {
+  try {
+    const session = await getSession();
+    if (!session) return [];
+    return await getPendingReplies(session.id);
+  } catch (error) {
+    console.error('Failed to get pending replies:', error);
+    return [];
+  }
+}
+
+// 4c. 답장 읽음 처리 (본인 세션만)
+export async function markReplyAsReadAction(
+  replyId: string
+): Promise<{ success: boolean }> {
+  try {
+    const session = await getSession();
+    if (!session) return { success: false };
+    if (!replyId) return { success: false };
+    return await markReplyAsRead(replyId, session.id);
+  } catch (error) {
+    console.error('Failed to mark reply as read:', error);
+    return { success: false };
+  }
+}
+
+// 4d. 미읽음 답장 수
+export async function getUnreadReplyCountAction(): Promise<number> {
+  try {
+    const session = await getSession();
+    if (!session) return 0;
+    return await getUnreadReplyCount(session.id);
+  } catch (error) {
+    console.error('Failed to get unread reply count:', error);
+    return 0;
   }
 }
 
