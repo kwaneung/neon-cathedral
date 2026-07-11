@@ -516,7 +516,7 @@ export default function Home() {
       </AnimatePresence>
 
       {/* 메인 프레임 */}
-      <main className="flex-1 w-full max-w-xl lg:max-w-2xl mx-auto px-4 py-8 flex flex-col justify-center">
+      <main className={`flex-1 w-full max-w-xl lg:max-w-2xl mx-auto px-4 py-8 flex flex-col ${view === 'ENTRANCE' ? 'justify-center' : ''}`}>
         
         {/* VIEW 1: 성당 입구 (ENTRANCE) - 극도의 비주얼 고도화 */}
         {view === 'ENTRANCE' && (
