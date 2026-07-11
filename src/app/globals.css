@@ -1,160 +1,242 @@
 @import "tailwindcss";
 
-:root {
-  --background: #050507;
-  --foreground: #e4e4e7;
-}
-
+/* ─────────────────────────────────────────────
+   폰트 매핑 (layout.tsx의 next/font 변수와 연결)
+   ───────────────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans), sans-serif;
-  --font-serif: var(--font-serif), serif;
-
-  /* Letter arrival — semantic tokens */
-  --color-letter-seal: #3f3f46;
-  --color-letter-timer: #fcd34d;
-  --color-letter-badge: #f59e0b;
-  --color-letter-angel-glow: #06b6d4;
-  --color-letter-devil-glow: #f43f5e;
-  --color-letter-toast-fg: #e4e4e7;
-
-  --shadow-letter-angel: 0 0 28px rgba(6, 182, 212, 0.18);
-  --shadow-letter-devil: 0 0 28px rgba(244, 63, 94, 0.18);
-  --shadow-letter-banner: 0 0 24px rgba(245, 158, 11, 0.08);
-
-  --animate-letter-seal-open: letter-seal-open 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-banner-enter: banner-enter 280ms ease-out both;
-  --animate-banner-exit: banner-exit 400ms ease-in both;
+  --font-sans: var(--font-noto), "Noto Sans KR", sans-serif;
+  --font-serif: var(--font-gowun), "Gowun Batang", serif;
+  --font-display: var(--font-cormorant), "Cormorant Garamond", serif;
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+@theme {
+  /* ── 컬러: 공간 (어두운 곳일수록 보라가 짙다) ── */
+  --color-nave: #0a0812;
+  --color-crypt: #06050c;
+  --color-surface: #141021;
+  --color-surface-raised: #1c1730;
+  --color-line: rgb(244 239 230 / 0.08);
+  --color-line-strong: rgb(244 239 230 / 0.16);
+
+  /* ── 컬러: 텍스트 (촛불에 비친 양피지 톤) ── */
+  --color-text-hi: #f4efe6;
+  --color-text-body: #cdc6dc;
+  --color-text-mute: #948ca9;
+  --color-text-faint: #6e6785;
+
+  /* ── 컬러: 불꽃 (1차 강조) ── */
+  --color-flame: #ffc46b;
+  --color-flame-hi: #ffdca8;
+  --color-flame-deep: #ff9e45;
+  --color-flame-ember: #e0533a;
+  --color-on-flame: #241304;
+
+  /* ── 컬러: 의미 액센트 ── */
+  --color-angel: #86e7f8;
+  --color-devil: #ff8fa3;
+  --color-votive: #b9a5ff;
+  --color-danger: #ff8fa3;
+
+  /* ── 컬러: 스테인드글라스 보석톤 (벽화 전용) ── */
+  --color-glass-ruby: #e5484d;
+  --color-glass-sapphire: #4c6fe8;
+  --color-glass-emerald: #2fb67c;
+  --color-glass-topaz: #e8b33c;
+  --color-glass-amethyst: #9a5cd0;
+  --color-leadline: #050409;
+
+  /* ── 타이포 스케일 ── */
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.15;
+  --text-display--letter-spacing: 0.02em;
+  --text-title: 1.75rem;
+  --text-title--line-height: 1.25;
+  --text-heading: 1.25rem;
+  --text-heading--line-height: 1.4;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.8;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.5;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.5;
+  --text-overline: 0.6875rem;
+  --text-overline--line-height: 1.4;
+  --text-overline--letter-spacing: 0.18em;
+
+  /* ── 라운딩 ── */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-arch: 999px 999px 20px 20px;
+  --radius-arch-hero: 160px 160px 24px 24px;
+
+  /* ── 그림자 / 글로우 ── */
+  --shadow-card: 0 8px 32px rgb(4 3 9 / 0.5);
+  --shadow-float: 0 24px 48px rgb(4 3 9 / 0.7), inset 0 1px 0 rgb(244 239 230 / 0.06);
+  --shadow-glow-flame: 0 0 24px rgb(255 196 107 / 0.22);
+  --shadow-glow-flame-strong: 0 0 40px rgb(255 158 69 / 0.35);
+  --shadow-glow-angel: 0 0 28px rgb(134 231 248 / 0.20);
+  --shadow-glow-devil: 0 0 28px rgb(255 143 163 / 0.20);
+  --shadow-glow-votive: 0 0 28px rgb(185 165 255 / 0.18);
+  --shadow-glass-inner: inset 0 0 24px rgb(244 239 230 / 0.10);
+
+  /* ── 모션 타이밍 ── */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-soft: cubic-bezier(0.55, 0, 0.78, 0.4);
+  --ease-liturgy: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ── 등록 애니메이션 ── */
+  --animate-candle-flicker: candle-flicker 3.4s ease-in-out infinite;
+  --animate-ray-drift: ray-drift 14s ease-in-out infinite alternate;
+  --animate-halo-breathe: halo-breathe 4.2s ease-in-out infinite;
+  --animate-view-enter: view-enter 400ms var(--ease-out-soft) both;
+  --animate-letter-seal-open: letter-seal-open 800ms var(--ease-out-soft) both;
+  --animate-banner-enter: banner-enter 280ms var(--ease-out-soft) both;
+  --animate-banner-exit: banner-exit 400ms var(--ease-in-soft) both;
+
+  @keyframes candle-flicker {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    18%      { opacity: 0.86; transform: scale(0.985); }
+    41%      { opacity: 0.96; transform: scale(1.01); }
+    67%      { opacity: 0.9;  transform: scale(0.995); }
+  }
+  @keyframes ray-drift {
+    from { opacity: 0.5; transform: translateX(-2%) skewX(-8deg); }
+    to   { opacity: 0.85; transform: translateX(2%) skewX(-6deg); }
+  }
+  @keyframes halo-breathe {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 1; }
+  }
+  @keyframes view-enter {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes letter-seal-open {
+    0%   { opacity: 1; filter: blur(0); }
+    40%  { opacity: 0.85; filter: blur(2px); }
+    100% { opacity: 1; filter: blur(0); }
+  }
+  @keyframes banner-enter {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes banner-exit {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-6px); }
+  }
 }
 
-@keyframes glow-pulse {
-  0%, 100% { opacity: 0.15; filter: blur(40px); }
-  50% { opacity: 0.3; filter: blur(60px); }
-}
-
-@keyframes letter-seal-open {
-  0%   { opacity: 1; filter: blur(0); }
-  40%  { opacity: 0.85; filter: blur(2px); }
-  100% { opacity: 1; filter: blur(0); }
-}
-
-@keyframes banner-enter {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes banner-exit {
-  from { opacity: 1; transform: translateY(0); }
-  to   { opacity: 0; transform: translateY(-6px); }
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-.animate-glow {
-  animation: glow-pulse 8s ease-in-out infinite;
-}
-
-.animate-letter-seal-open {
-  animation: var(--animate-letter-seal-open);
-}
-
-.animate-banner-enter {
-  animation: var(--animate-banner-enter);
-}
-
-.animate-banner-exit {
-  animation: var(--animate-banner-exit);
-}
-
+/* ───────────── 베이스 ───────────── */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), sans-serif;
+  background: var(--color-nave);
+  color: var(--color-text-body);
+  font-family: var(--font-sans);
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+::selection {
+  background: rgb(255 196 107 / 0.25);
+  color: var(--color-text-hi);
 }
-::-webkit-scrollbar-track {
-  background: rgba(5, 5, 7, 0.5);
+
+*:focus-visible {
+  outline: 2px solid rgb(255 196 107 / 0.7);
+  outline-offset: 2px;
 }
+
+/* 그레인 텍스처 — 최상위 오버레이. page.tsx 루트에 <div class="texture-grain" /> 1개 */
+.texture-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 빛기둥 — 배경 레이어. 상단 중앙에서 비스듬히 */
+.god-ray {
+  position: fixed;
+  top: -12%;
+  left: 18%;
+  width: 44vw;
+  max-width: 560px;
+  height: 76vh;
+  pointer-events: none;
+  transform: skewX(-8deg);
+  background: linear-gradient(
+    to bottom,
+    rgb(185 165 255 / 0.10) 0%,
+    rgb(255 196 107 / 0.05) 45%,
+    transparent 100%
+  );
+  filter: blur(48px);
+  animation: var(--animate-ray-drift);
+}
+
+/* 촛불 잔광 — 하단 앰버 풀 */
+.candle-pool {
+  position: fixed;
+  bottom: -18%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90vw;
+  max-width: 900px;
+  height: 46vh;
+  pointer-events: none;
+  border-radius: 9999px;
+  background: radial-gradient(
+    ellipse at center,
+    rgb(255 158 69 / 0.10) 0%,
+    rgb(224 83 58 / 0.04) 45%,
+    transparent 72%
+  );
+  filter: blur(56px);
+  animation: var(--animate-halo-breathe);
+}
+
+/* 스크롤바 */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(63, 63, 70, 0.4);
+  background: rgb(148 140 169 / 0.28);
   border-radius: 3px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(82, 82, 91, 0.6);
-}
+::-webkit-scrollbar-thumb:hover { background: rgb(148 140 169 / 0.45); }
 
-/* Stained Glass Polygon Clips (Dribbble Aesthetic) */
-.glass-clip-1 {
-  clip-path: polygon(5% 5%, 95% 0%, 90% 85%, 10% 95%);
-}
-.glass-clip-2 {
-  clip-path: polygon(0% 10%, 100% 0%, 85% 90%, 15% 100%);
-}
-.glass-clip-3 {
-  clip-path: polygon(10% 0%, 90% 15%, 100% 80%, 5% 90%);
-}
-.glass-clip-4 {
-  clip-path: polygon(0% 0%, 85% 20%, 95% 95%, 15% 85%);
-}
-.glass-clip-5 {
-  clip-path: polygon(15% 10%, 95% 5%, 80% 95%, 0% 85%);
-}
-.glass-clip-6 {
-  clip-path: polygon(5% 15%, 90% 0%, 100% 90%, 10% 100%);
-}
-
-/* Custom Backdrop & Shadow Glows */
-.neon-glow-cyan {
-  box-shadow: 0 0 30px rgba(6, 182, 212, 0.15);
-}
-.neon-glow-magenta {
-  box-shadow: 0 0 30px rgba(236, 72, 153, 0.15);
-}
-.neon-glow-amber {
-  box-shadow: 0 0 30px rgba(245, 158, 11, 0.15);
-}
-.neon-glow-rose {
-  box-shadow: 0 0 30px rgba(244, 63, 94, 0.15);
-}
-
+/* 타이머 숫자 */
 .letter-timer {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.12em;
 }
 
-/* Shimmer animation for card borders */
-@keyframes border-shimmer {
-  0% { border-color: rgba(255, 255, 255, 0.05); }
-  50% { border-color: rgba(245, 158, 11, 0.2); }
-  100% { border-color: rgba(255, 255, 255, 0.05); }
+/* 스테인드글라스 랜싯 조각 — 납선 이중 보더 */
+.glass-lancet {
+  border-radius: var(--radius-arch);
+  border: 2px solid var(--color-leadline);
+  box-shadow:
+    inset 0 0 0 1px rgb(244 239 230 / 0.14),
+    var(--shadow-glass-inner);
+  overflow: hidden;
 }
 
-.border-shimmering {
-  animation: border-shimmer 4s ease-in-out infinite;
-}
+/* 유틸 애니메이션 클래스 */
+.animate-candle-flicker { animation: var(--animate-candle-flicker); }
+.animate-view-enter { animation: var(--animate-view-enter); }
+.animate-letter-seal-open { animation: var(--animate-letter-seal-open); }
+.animate-banner-enter { animation: var(--animate-banner-enter); }
+.animate-banner-exit { animation: var(--animate-banner-exit); }
 
 @media (prefers-reduced-motion: reduce) {
+  .god-ray,
+  .candle-pool,
+  .animate-candle-flicker,
+  .animate-view-enter,
   .animate-letter-seal-open,
   .animate-banner-enter,
-  .animate-banner-exit,
-  .border-shimmering,
-  .animate-float,
-  .animate-glow {
+  .animate-banner-exit {
     animation: none !important;
   }
 }

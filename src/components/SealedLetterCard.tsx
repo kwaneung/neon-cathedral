@@ -47,6 +47,7 @@ export function SealedLetterCard({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [isOpening, setIsOpening] = useState(false);
   const [optimisticRead, setOptimisticRead] = useState(false);
+  const [sealGone, setSealGone] = useState(false);
 
   const effectiveRead = isRead || optimisticRead;
 
@@ -71,14 +72,18 @@ export function SealedLetterCard({
     Math.ceil((new Date(sentAt).getTime() - nowMs) / 1000)
   );
 
-  const toneLabel = tone === 'angel' ? "Angel's comfort" : "Devil's Whisper";
-  const toneDot = tone === 'angel' ? 'bg-cyan-400' : 'bg-rose-500';
+  const toneLabel = tone === 'angel' ? '천사의 위로' : '악마의 속삭임';
+  const toneDot = tone === 'angel' ? 'bg-angel shadow-glow-angel' : 'bg-devil shadow-glow-devil';
   const sealedBorder =
-    tone === 'angel' ? 'border-cyan-500/15' : 'border-rose-500/15';
+    tone === 'angel' ? 'border-angel/15' : 'border-devil/15';
   const unreadBorder =
     tone === 'angel'
-      ? 'border-cyan-500/35 neon-glow-cyan shadow-[0_0_28px_rgba(6,182,212,0.18)]'
-      : 'border-rose-500/35 neon-glow-rose shadow-[0_0_28px_rgba(244,63,94,0.18)]';
+      ? 'border-angel/40 shadow-glow-angel'
+      : 'border-devil/40 shadow-glow-devil';
+  const sealDisk =
+    tone === 'angel'
+      ? 'border-angel/40 bg-gradient-to-br from-angel/30 to-[#33408f]/40 text-angel'
+      : 'border-devil/40 bg-gradient-to-br from-devil/30 to-[#8c2f4a]/40 text-devil';
 
   const handleOpen = async () => {
     if (visualState !== 'arrived_unread' || isOpening) return;
@@ -91,12 +96,15 @@ export function SealedLetterCard({
         setIsOpening(false);
         return;
       }
+      setSealGone(true);
       window.setTimeout(() => {
         setOptimisticRead(true);
         setIsOpening(false);
+        setSealGone(false);
       }, 800);
     } catch {
       setIsOpening(false);
+      setSealGone(false);
     }
   };
 
@@ -104,16 +112,17 @@ export function SealedLetterCard({
     return (
       <motion.div
         layout
-        className="relative rounded-3xl border border-white/[0.04] bg-[#07070a]/40 p-6 shadow-2xl backdrop-blur-2xl transition-all duration-300 hover:border-white/[0.08]"
+        className="relative rounded-lg border border-line bg-surface/50 p-6 backdrop-blur-xl"
       >
-        <div className="mb-4 flex items-center justify-between border-b border-white/[0.03] pb-3.5 text-[10px] font-light text-zinc-500">
+        <div className="mb-4 flex items-center justify-between border-b border-line pb-3.5 text-caption text-text-mute">
           <span className="flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full blur-[1px] ${toneDot}`} />
-            <span className="font-sans font-bold tracking-widest uppercase">
+            <span className={`h-2 w-2 rounded-full ${toneDot}`} />
+            <span className="font-sans font-bold tracking-[0.08em]">
               {toneLabel}
             </span>
           </span>
-          <span className="font-sans text-zinc-600">
+          <span className="flex items-center gap-1.5 font-sans text-caption text-text-faint tabular-nums">
+            <MailOpen className="h-4 w-4" aria-hidden="true" />
             {new Date(sentAt).toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
@@ -121,7 +130,7 @@ export function SealedLetterCard({
             전송됨
           </span>
         </div>
-        <p className="whitespace-pre-wrap font-serif text-sm font-light leading-relaxed tracking-wide text-zinc-300">
+        <p className="whitespace-pre-wrap break-keep font-serif text-body leading-[1.8] text-text-body">
           {content}
         </p>
       </motion.div>
@@ -135,35 +144,40 @@ export function SealedLetterCard({
       <div
         aria-disabled="true"
         aria-label={`봉인된 편지, 도착까지 ${mm}분 ${ss}초, ${tone === 'angel' ? '천사' : '악마'}`}
-        className={`pointer-events-none relative rounded-3xl border bg-[#07070a]/40 p-6 backdrop-blur-2xl ${sealedBorder} opacity-90`}
+        className={`pointer-events-none relative rounded-lg border bg-surface/70 p-6 opacity-90 backdrop-blur-xl ${sealedBorder}`}
       >
-        <div className="mb-4 flex items-center justify-between border-b border-white/[0.03] pb-3.5 text-[10px] font-light text-zinc-500">
+        <div className="mb-4 flex items-center justify-between border-b border-line pb-3.5 text-caption text-text-mute">
           <span className="flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full blur-[1px] ${toneDot} opacity-40`} />
-            <span className="font-sans font-bold tracking-widest uppercase opacity-70">
+            <span className={`h-2 w-2 rounded-full opacity-40 ${toneDot}`} />
+            <span className="font-sans font-bold tracking-[0.08em] opacity-70">
               {toneLabel}
             </span>
           </span>
-          <span className="flex items-center gap-1.5 font-sans text-zinc-500">
+          <span className="flex items-center gap-1.5 font-sans text-text-mute">
             <Lock className="h-4 w-4" aria-hidden="true" />
             봉인됨
           </span>
         </div>
 
         <div className="flex flex-col items-center gap-4 py-4">
-          <Mail className="h-10 w-10 text-zinc-700" aria-hidden="true" />
+          <div
+            className={`flex h-12 w-12 items-center justify-center rounded-full border-2 ${sealDisk}`}
+            aria-hidden="true"
+          >
+            <Lock className="h-5 w-5" />
+          </div>
           <div className="flex w-full flex-col gap-2 px-2">
-            <div className="h-3 rounded bg-zinc-800/80 blur-[2px]" />
-            <div className="h-3 w-5/6 rounded bg-zinc-800/80 blur-[2px]" />
-            <div className="h-3 w-2/3 rounded bg-zinc-800/80 blur-[2px]" />
+            <div className="h-3 rounded bg-surface-raised blur-[2px]" />
+            <div className="h-3 w-5/6 rounded bg-surface-raised blur-[2px]" />
+            <div className="h-3 w-2/3 rounded bg-surface-raised blur-[2px]" />
           </div>
         </div>
 
-        <div className="mt-2 flex items-center justify-center gap-2 border-t border-white/[0.03] pt-4">
-          <span className="text-[11px] font-sans font-light tracking-wide text-zinc-500">
+        <div className="mt-2 flex items-center justify-center gap-2 border-t border-line pt-4">
+          <span className="text-caption text-text-mute">
             도착까지
           </span>
-          <span className="letter-timer font-mono text-sm tabular-nums tracking-[0.12em] text-amber-300">
+          <span className="letter-timer font-mono text-sm tabular-nums text-flame-hi">
             {formatMmSs(computedRemaining)}
           </span>
         </div>
@@ -177,28 +191,41 @@ export function SealedLetterCard({
       aria-label={`도착한 편지 개봉하기, ${tone === 'angel' ? '천사' : '악마'}`}
       onClick={handleOpen}
       disabled={isOpening}
-      className={`relative w-full cursor-pointer rounded-3xl border bg-[#07070a]/40 p-6 text-left backdrop-blur-2xl transition-all duration-300 ${unreadBorder} ${
-        reducedMotion || isOpening ? '' : 'border-shimmering'
-      } ${isOpening && !reducedMotion ? 'animate-letter-seal-open' : ''}`}
+      className={`relative w-full cursor-pointer rounded-lg border bg-surface/70 p-6 text-left backdrop-blur-xl transition-all duration-[240ms] ${unreadBorder} ${
+        isOpening && !reducedMotion ? 'animate-letter-seal-open' : ''
+      }`}
     >
-      <div className="mb-4 flex items-center justify-between border-b border-white/[0.03] pb-3.5 text-[10px] font-light text-zinc-500">
+      <div className="mb-4 flex items-center justify-between border-b border-line pb-3.5 text-caption text-text-mute">
         <span className="flex items-center gap-2">
-          <span className={`h-2 w-2 rounded-full blur-[1px] ${toneDot}`} />
-          <span className="font-sans font-bold tracking-widest uppercase">
+          <span className={`h-2 w-2 rounded-full ${toneDot}`} />
+          <span className="font-sans font-bold tracking-[0.08em]">
             {toneLabel}
           </span>
         </span>
-        <MailOpen className="h-4 w-4 text-amber-400" aria-hidden="true" />
+        <MailOpen className="h-4 w-4 text-flame" aria-hidden="true" />
       </div>
 
       {isOpening && !reducedMotion ? (
-        <p className="whitespace-pre-wrap font-serif text-sm font-light leading-relaxed tracking-wide text-zinc-300 opacity-90">
+        <p className="whitespace-pre-wrap break-keep font-serif text-body leading-[1.8] text-text-body opacity-90">
           {content}
         </p>
       ) : (
         <div className="flex flex-col items-center gap-3 py-6">
-          <Mail className="h-10 w-10 text-amber-500/80" aria-hidden="true" />
-          <span className="text-[11px] uppercase tracking-[0.2em] text-amber-400">
+          <motion.div
+            aria-hidden="true"
+            animate={
+              sealGone
+                ? { scale: 0, rotate: -20 }
+                : { scale: 1, rotate: 0 }
+            }
+            transition={{ duration: 0.4, ease: [0.55, 0, 0.78, 0.4] }}
+            className={`flex h-12 w-12 items-center justify-center rounded-full border-2 ${sealDisk} ${
+              reducedMotion ? '' : 'animate-candle-flicker'
+            }`}
+          >
+            <Mail className="h-5 w-5" />
+          </motion.div>
+          <span className="text-caption tracking-[0.2em] text-flame">
             터치하여 개봉
           </span>
         </div>
