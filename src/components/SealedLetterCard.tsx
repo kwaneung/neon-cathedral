@@ -117,11 +117,11 @@ export function SealedLetterCard({
         <div className="mb-4 flex items-center justify-between border-b border-line pb-3.5 text-caption text-text-mute">
           <span className="flex items-center gap-2">
             <span className={`h-2 w-2 rounded-full ${toneDot}`} />
-            <span className="font-sans font-bold tracking-[0.08em]">
+            <span className="font-sans font-bold tracking-normal">
               {toneLabel}
             </span>
           </span>
-          <span className="flex items-center gap-1.5 font-sans text-caption text-text-faint tabular-nums">
+          <span className="flex items-center gap-1.5 font-sans text-caption text-text-mute tabular-nums">
             <MailOpen className="h-4 w-4" aria-hidden="true" />
             {new Date(sentAt).toLocaleTimeString([], {
               hour: '2-digit',
@@ -149,7 +149,7 @@ export function SealedLetterCard({
         <div className="mb-4 flex items-center justify-between border-b border-line pb-3.5 text-caption text-text-mute">
           <span className="flex items-center gap-2">
             <span className={`h-2 w-2 rounded-full opacity-40 ${toneDot}`} />
-            <span className="font-sans font-bold tracking-[0.08em] opacity-70">
+            <span className="font-sans font-bold tracking-normal opacity-70">
               {toneLabel}
             </span>
           </span>
@@ -198,7 +198,7 @@ export function SealedLetterCard({
       <div className="mb-4 flex items-center justify-between border-b border-line pb-3.5 text-caption text-text-mute">
         <span className="flex items-center gap-2">
           <span className={`h-2 w-2 rounded-full ${toneDot}`} />
-          <span className="font-sans font-bold tracking-[0.08em]">
+          <span className="font-sans font-bold tracking-normal">
             {toneLabel}
           </span>
         </span>
@@ -225,7 +225,7 @@ export function SealedLetterCard({
           >
             <Mail className="h-5 w-5" />
           </motion.div>
-          <span className="text-caption tracking-[0.2em] text-flame">
+          <span className="text-label tracking-(--tracking-hangul) text-flame">
             터치하여 개봉
           </span>
         </div>

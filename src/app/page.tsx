@@ -544,7 +544,7 @@ export default function Home() {
               {/* 앰비언트 촛불 데코 */}
               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1.5 bg-surface/75 backdrop-blur-md px-4 py-2 rounded-full border border-flame/25 shadow-glow-flame">
                 <Flame className={`h-4.5 w-4.5 text-flame fill-flame/30 ${motionReduced ? '' : 'animate-candle-flicker'}`} />
-                <span className="text-caption tracking-[0.18em] text-flame uppercase">촛불이 켜져 있습니다</span>
+                <span className="text-caption tracking-(--tracking-hangul) text-flame">촛불이 켜져 있습니다</span>
               </div>
             </motion.div>
 
@@ -558,7 +558,7 @@ export default function Home() {
               NEON CATHEDRAL
             </motion.h2>
             <p className="font-serif text-heading text-text-hi mb-2">네온 성당</p>
-            <p className="text-text-mute font-sans text-caption tracking-[0.35em] uppercase mb-10">
+            <p className="text-text-mute font-sans text-label tracking-(--tracking-hangul) mb-10">
               소멸의 고해소 & 따뜻한 촛불의 회랑
             </p>
 
@@ -567,7 +567,7 @@ export default function Home() {
               initial={motionReduced ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.16, ease: [0.22, 1, 0.36, 1] as const }}
-              className="w-full text-text-body text-caption leading-relaxed text-left space-y-4 bg-surface/70 border border-line p-6 rounded-[24px] backdrop-blur-xl shadow-card mb-12"
+              className="w-full text-text-body text-label leading-relaxed text-left space-y-4 bg-surface/70 border border-line p-6 rounded-[24px] backdrop-blur-xl shadow-card mb-12"
             >
               <div className="flex gap-3">
                 <span className="font-display text-heading text-flame">Ⅰ</span>
@@ -585,7 +585,7 @@ export default function Home() {
 
             <button
               onClick={handleEnterCathedral}
-              className="w-full h-14 rounded-full bg-gradient-to-r from-flame via-flame-deep to-flame-ember text-on-flame font-sans font-bold text-caption sm:text-sm tracking-[0.28em] uppercase shadow-glow-flame-strong hover:brightness-110 transition-all duration-300 active:translate-y-px"
+              className="w-full h-14 rounded-full bg-gradient-to-r from-flame via-flame-deep to-flame-ember text-on-flame font-sans font-bold text-sm tracking-(--tracking-hangul) shadow-glow-flame-strong hover:brightness-110 transition-all duration-300 active:translate-y-px"
             >
               성당 안으로 들어가기
             </button>
@@ -616,7 +616,7 @@ export default function Home() {
                 maxLength={2000}
                 rows={9}
                 disabled={isLoading}
-                className="w-full bg-transparent border-0 outline-none font-serif text-body text-text-hi placeholder:text-text-faint leading-relaxed resize-none focus:ring-0"
+                className="w-full bg-transparent border-0 outline-none font-serif text-body text-text-hi placeholder:text-text-mute leading-relaxed resize-none focus:ring-0"
               />
               
               {/* 게이지 바 형태의 캐릭터 카운터 */}
@@ -652,7 +652,7 @@ export default function Home() {
 
             {/* 입체적 톤 카드 선택 영역 */}
             <div className="space-y-3.5">
-              <label className="text-caption text-text-mute tracking-[0.2em] uppercase block pl-1">
+              <label className="text-caption text-text-mute tracking-normal block pl-1">
                 서신 톤 선택
               </label>
               <div className="flex flex-col gap-3 sm:grid sm:grid-cols-2" role="radiogroup" aria-label="서신 톤 선택">
@@ -673,9 +673,9 @@ export default function Home() {
                   )}
                   <div className="flex items-center gap-2.5 mb-2.5">
                     <Sparkles className={`h-4.5 w-4.5 ${selectedTone === 'angel' ? 'text-cyan-300' : 'text-text-faint'}`} />
-                    <span className="text-caption font-bold tracking-[0.15em] uppercase">천사의 위로</span>
+                    <span className="text-label font-bold tracking-normal">천사의 위로</span>
                   </div>
-                  <p className="text-caption leading-relaxed text-text-body font-serif">
+                  <p className="text-label leading-relaxed text-text-body font-serif">
                     진심이 담긴 포근한 위로와, 따뜻한 마음의 포옹을 전하는 편지.
                   </p>
                 </button>
@@ -697,9 +697,9 @@ export default function Home() {
                   )}
                   <div className="flex items-center gap-2.5 mb-2.5">
                     <Flame className={`h-4.5 w-4.5 ${selectedTone === 'devil' ? 'text-devil fill-devil/25' : 'text-text-faint'}`} />
-                    <span className="text-caption font-bold tracking-[0.15em] uppercase">악마의 속삭임</span>
+                    <span className="text-label font-bold tracking-normal">악마의 속삭임</span>
                   </div>
-                  <p className="text-caption leading-relaxed text-text-body font-serif">
+                  <p className="text-label leading-relaxed text-text-body font-serif">
                     팩트를 짚는 현실 자각, 감성을 배제한 칼날 같은 이성의 돌파구.
                   </p>
                 </button>
@@ -710,7 +710,7 @@ export default function Home() {
             <button
               onClick={handleSubmitConfession}
               disabled={isLoading || !writingContent.trim()}
-              className="w-full h-14 rounded-full bg-gradient-to-r from-flame via-flame-deep to-flame-ember text-on-flame font-sans font-bold text-caption tracking-[0.28em] uppercase shadow-glow-flame-strong hover:brightness-110 disabled:bg-surface-raised disabled:bg-none disabled:text-text-faint disabled:shadow-none disabled:hover:brightness-100 transition-all duration-300 flex items-center justify-center gap-2"
+              className="w-full h-14 rounded-full bg-gradient-to-r from-flame via-flame-deep to-flame-ember text-on-flame font-sans font-bold text-sm tracking-(--tracking-hangul) shadow-glow-flame-strong hover:brightness-110 disabled:bg-surface-raised disabled:bg-none disabled:text-text-faint disabled:shadow-none disabled:hover:brightness-100 transition-all duration-300 flex items-center justify-center gap-2"
             >
               {isLoading && <span className="h-4 w-4 rounded-full border-2 border-on-flame/60 border-t-transparent animate-spin" aria-hidden />}
               {isLoading ? '재로 산화시키는 중...' : '고해 제단에 바쳐 연소하기'}
@@ -751,13 +751,13 @@ export default function Home() {
             {isLoading && confessions.length === 0 ? (
               <div className="py-24 text-center space-y-4">
                 <div className="h-6 w-6 border-2 border-flame border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-caption text-text-faint tracking-widest animate-pulse">피드의 불을 지피는 중...</p>
+                <p className="text-caption text-text-mute animate-pulse">피드의 불을 지피는 중...</p>
               </div>
             ) : confessions.length === 0 ? (
               <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-line bg-[linear-gradient(135deg,rgba(255,255,255,0.03)_0_25%,transparent_25%_50%,rgba(255,255,255,0.03)_50%_75%,transparent_75%)] bg-[length:18px_18px] px-8">
                 <HelpCircle className="h-10 w-10 text-text-faint mx-auto" />
                 <p className="text-sm font-serif text-text-body">아직 타오르는 고민이 없습니다.</p>
-                <p className="text-caption text-text-faint tracking-wider">
+                <p className="text-label text-text-mute">
                   고해실로 이동하여 마음의 응어리를 최초로 태워 보세요.
                 </p>
               </div>
@@ -783,7 +783,7 @@ export default function Home() {
                           <span className={`w-2 h-2 rounded-full ${c.tone === 'angel' ? 'bg-cyan-300' : 'bg-devil'}`} />
                           <span className="font-sans font-medium tracking-wider break-keep">{c.authorName}</span>
                           {isAuthor && (
-                            <span className="text-[9px] font-sans font-bold text-on-flame tracking-wider bg-flame px-2 py-0.5 rounded-full uppercase">나</span>
+                            <span className="text-[10px] font-sans font-bold text-on-flame bg-flame px-2 py-0.5 rounded-full">나</span>
                           )}
                         </span>
                         <span className="flex items-center gap-1.5 text-text-mute font-sans text-right break-keep">
@@ -799,7 +799,7 @@ export default function Home() {
 
                       {/* 촛불 버튼 및 상세 안내 */}
                       <div className="flex justify-between items-center border-t border-line pt-4 mt-2 gap-4">
-                        <div className="flex items-center gap-1.5 text-caption text-text-mute font-serif break-keep">
+                        <div className="flex items-center gap-1.5 text-caption text-text-mute font-sans break-keep">
                           <Info className="h-3.5 w-3.5 text-text-faint shrink-0" />
                           <span>5촛불 획득 시 벽화에 영원히 박제됩니다</span>
                         </div>
@@ -844,13 +844,13 @@ export default function Home() {
             {isLoading && stainedGlass.length === 0 ? (
               <div className="py-24 text-center space-y-4">
                 <div className="h-6 w-6 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-caption text-text-faint tracking-widest animate-pulse">유리 벽화 조각을 깎는 중...</p>
+                <p className="text-caption text-text-mute animate-pulse">유리 벽화 조각을 깎는 중...</p>
               </div>
             ) : stainedGlass.length === 0 ? (
               <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-line bg-[linear-gradient(135deg,rgba(255,255,255,0.03)_0_25%,transparent_25%_50%,rgba(255,255,255,0.03)_50%_75%,transparent_75%)] bg-[length:18px_18px] px-8">
                 <Grid className="h-10 w-10 text-text-faint mx-auto" />
                 <p className="text-sm font-serif text-text-body">박제된 사연이 아직 없습니다.</p>
-                <p className="text-caption text-text-faint tracking-wide leading-relaxed">
+                <p className="text-label text-text-mute leading-relaxed">
                   본당의 글에 5개 이상의 촛불을 켜주세요.<br />
                   이 벽면에 영롱한 빛을 내는 조각으로 기록됩니다.
                 </p>
@@ -889,7 +889,7 @@ export default function Home() {
                         &ldquo;{c.content}&rdquo;
                       </p>
 
-                      <div className="relative z-10 text-center text-overline opacity-70">
+                      <div className="relative z-10 text-center text-overline tracking-normal opacity-70">
                         {c.authorName}
                       </div>
                     </motion.div>
@@ -932,10 +932,10 @@ export default function Home() {
             )}
 
             {/* 5분 사유의 시간 안내 상자 */}
-            <div className="bg-surface/70 border border-line rounded-[24px] p-5 flex gap-4 text-caption leading-relaxed text-text-body shadow-card">
+            <div className="bg-surface/70 border border-line rounded-[24px] p-5 flex gap-4 text-label leading-relaxed text-text-body shadow-card">
               <Clock className="h-5 w-5 text-flame shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <span className="text-text-hi font-bold block text-[13px] tracking-wide font-serif">5분, 번뇌가 정화되는 시간</span>
+                <span className="text-text-hi font-bold block text-[13px] font-serif">5분, 번뇌가 정화되는 시간</span>
                 <p className="font-serif text-text-body">
                   고해를 불꽃으로 정화시킨 시점으로부터 5분의 성찰이 흐른 뒤 답장이 봉투에 배달됩니다. 성당에 침묵이 차오르는 시간을 온전히 만끽하세요.
                 </p>
@@ -945,13 +945,13 @@ export default function Home() {
             {isLoading && replies.length === 0 && pendingReplies.length === 0 ? (
               <div className="py-24 text-center space-y-4">
                 <div className="h-6 w-6 border-2 border-devil border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-caption text-text-faint tracking-widest animate-pulse">우체통 비우는 중...</p>
+                <p className="text-caption text-text-mute animate-pulse">우체통 비우는 중...</p>
               </div>
             ) : replies.length === 0 && pendingReplies.length === 0 ? (
               <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-line bg-[linear-gradient(135deg,rgba(255,255,255,0.03)_0_25%,transparent_25%_50%,rgba(255,255,255,0.03)_50%_75%,transparent_75%)] bg-[length:18px_18px] px-8">
                 <Mail className="h-10 w-10 text-text-faint mx-auto" />
                 <p className="text-sm font-serif text-text-body">도착한 편지함이 고요합니다.</p>
-                <p className="text-caption text-text-faint tracking-wide leading-relaxed">
+                <p className="text-label text-text-mute leading-relaxed">
                   고해를 태우면 이곳에 봉인된 편지가 먼저 나타납니다.<br />
                   5분 뒤 자동으로 개봉할 수 있습니다.
                 </p>
@@ -1011,7 +1011,7 @@ export default function Home() {
                       <Music className="h-4.5 w-4.5 text-text-mute" />
                       로파이 앰비언스 루프
                     </label>
-                    <p className="text-caption text-text-mute font-sans">
+                    <p className="text-label text-text-mute font-sans">
                       성당 내부의 아늑한 음향 환경을 활성화합니다.
                     </p>
                   </div>
@@ -1056,7 +1056,7 @@ export default function Home() {
                     <Sparkles className="h-4.5 w-4.5 text-text-mute" />
                     애니메이션 간소화 (Reduced Motion)
                   </label>
-                  <p className="text-caption text-text-mute leading-relaxed">
+                  <p className="text-label text-text-mute leading-relaxed">
                     불꽃 연소 및 글로우 등 물리 연산을 줄여 하드웨어의 배터리를 보존하고 시각 편의를 제공합니다.
                   </p>
                   <p className="text-caption text-text-mute">{reducedMotion ? '간소화됨' : '전체 모션'}</p>
@@ -1083,10 +1083,10 @@ export default function Home() {
               {/* 익명 토큰 뱃지 */}
               {userSession && (
                 <div className="p-6 space-y-2">
-                  <span className="text-caption font-sans text-text-mute tracking-wider uppercase block">나의 고유 세션 데이터</span>
+                  <span className="text-caption font-sans text-text-mute block">나의 고유 세션 데이터</span>
                   <div className="bg-crypt/50 border border-line p-4 rounded-[18px] space-y-1">
                     <span className="text-sm text-text-hi font-serif font-bold block">식별자: {userSession.name}</span>
-                    <span className="text-[10px] text-text-faint font-mono tracking-wider block break-all">
+                    <span className="text-[11px] text-text-mute font-mono tracking-wider block break-all">
                       TOKEN: {userSession.id}
                     </span>
                   </div>
@@ -1094,8 +1094,8 @@ export default function Home() {
               )}
 
               {/* 프라이버시 조항 */}
-              <div className="p-6 text-caption text-text-mute font-serif leading-relaxed space-y-2">
-                <span className="block font-bold text-text-body mb-1 tracking-wider uppercase">개인정보 취급 & 소멸 규정</span>
+              <div className="p-6 text-label text-text-mute font-serif leading-relaxed space-y-2">
+                <span className="block font-bold text-text-body mb-1">개인정보 취급 & 소멸 규정</span>
                 <p>• 네온 성당은 회원가입을 지원하지 않으며, 클라이언트 쿠키 토큰은 오직 익명 식별을 위한 용도로만 브라우저 내에 국한되어 보관됩니다.</p>
                 <p>• 태워진 고해 글은 24시간의 노출 기한 경과 시 데이터베이스에서 하드 삭제(Hard-Delete) 처리되며 어떠한 백업본도 남겨두지 않습니다.</p>
                 <p>• 단, 5촛불 이상의 깊은 공감을 달성하여 '스테인드글라스 벽화'로 보존 판정을 받은 흔적은 이 공간에 예술 조각으로 영원히 보존됩니다.</p>
@@ -1123,7 +1123,7 @@ export default function Home() {
             }`}
           >
             <PenTool className="h-5 w-5" />
-            <span className="text-[9px] font-sans font-medium tracking-[0.18em] uppercase">제단</span>
+            <span className="text-caption font-sans font-medium tracking-normal">제단</span>
             {view === 'CONFESS' && (
               <motion.div layoutId="nav-active" className="absolute -top-1.5 w-8 h-1 rounded-full bg-flame shadow-glow-flame" />
             )}
@@ -1137,7 +1137,7 @@ export default function Home() {
             }`}
           >
             <Compass className="h-5 w-5" />
-            <span className="text-[9px] font-sans font-medium tracking-[0.18em] uppercase">회랑</span>
+            <span className="text-caption font-sans font-medium tracking-normal">회랑</span>
             {view === 'CATHEDRAL' && (
               <motion.div layoutId="nav-active" className="absolute -top-1.5 w-8 h-1 rounded-full bg-flame shadow-glow-flame" />
             )}
@@ -1151,7 +1151,7 @@ export default function Home() {
             }`}
           >
             <Grid className="h-5 w-5" />
-            <span className="text-[9px] font-sans font-medium tracking-[0.18em] uppercase">벽화</span>
+            <span className="text-caption font-sans font-medium tracking-normal">벽화</span>
             {view === 'STAINED_GLASS' && (
               <motion.div layoutId="nav-active" className="absolute -top-1.5 w-8 h-1 rounded-full bg-flame shadow-glow-flame" />
             )}
@@ -1182,7 +1182,7 @@ export default function Home() {
                 </span>
               )}
             </span>
-            <span className="text-[9px] font-sans font-medium tracking-[0.18em] uppercase">서신</span>
+            <span className="text-caption font-sans font-medium tracking-normal">서신</span>
             {view === 'LETTER_BOX' && (
               <motion.div layoutId="nav-active" className="absolute -top-1.5 w-8 h-1 rounded-full bg-flame shadow-glow-flame" />
             )}
@@ -1196,7 +1196,7 @@ export default function Home() {
             }`}
           >
             <SettingsIcon className="h-5 w-5" />
-            <span className="text-[9px] font-sans font-medium tracking-[0.18em] uppercase">비축</span>
+            <span className="text-caption font-sans font-medium tracking-normal">비축</span>
             {view === 'SETTINGS' && (
               <motion.div layoutId="nav-active" className="absolute -top-1.5 w-8 h-1 rounded-full bg-flame shadow-glow-flame" />
             )}
