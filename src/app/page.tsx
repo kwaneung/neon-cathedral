@@ -289,6 +289,29 @@ export default function Home() {
     localStorage.setItem('reduced_motion', String(nextVal));
   };
 
+  const showError = (msg: string) => {
+    setErrorMsg(msg);
+    setTimeout(() => setErrorMsg(null), 3000);
+  };
+
+  const showSuccess = (msg: string) => {
+    setSuccessMsg(msg);
+    setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
+  const getRemainingTimeText = (expiresAtStr: string) => {
+    const expiresAt = new Date(expiresAtStr);
+    const now = new Date();
+    const diffMs = expiresAt.getTime() - now.getTime();
+
+    if (diffMs <= 0) return '소멸 임박';
+
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    return `${diffHours}시간 ${diffMins}분 후 재가 되어 소멸`;
+  };
+
   const handleSubmitConfession = () => {
     if (!writingContent.trim()) {
       showError('참회록을 비워둘 수 없습니다.');
@@ -357,29 +380,6 @@ export default function Home() {
 
   const handleVoteError = (errorMsg: string) => {
     showError(errorMsg);
-  };
-
-  const showError = (msg: string) => {
-    setErrorMsg(msg);
-    setTimeout(() => setErrorMsg(null), 3000);
-  };
-
-  const showSuccess = (msg: string) => {
-    setSuccessMsg(msg);
-    setTimeout(() => setSuccessMsg(null), 3000);
-  };
-
-  const getRemainingTimeText = (expiresAtStr: string) => {
-    const expiresAt = new Date(expiresAtStr);
-    const now = new Date();
-    const diffMs = expiresAt.getTime() - now.getTime();
-
-    if (diffMs <= 0) return '소멸 임박';
-
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-    return `${diffHours}시간 ${diffMins}분 후 재가 되어 소멸`;
   };
 
   // 스테인드글라스 유리 스타일링 (lancet gem palettes)
