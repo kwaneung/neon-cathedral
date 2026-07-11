@@ -23,6 +23,36 @@ export interface Reply {
   isRead: boolean;
 }
 
+export interface PendingReply {
+  id: string;
+  confessionId: string;
+  tone: 'angel' | 'devil';
+  sentAt: string;
+  remainingSeconds: number;
+}
+
+type DbReplyRow = {
+  id: string;
+  confession_id: string;
+  recipient_id: string;
+  tone: 'angel' | 'devil';
+  content: string;
+  sent_at: string;
+  is_read: boolean;
+};
+
+function mapDbReplyToSchema(r: DbReplyRow): Reply {
+  return {
+    id: r.id,
+    confessionId: r.confession_id,
+    recipientId: r.recipient_id,
+    tone: r.tone,
+    content: r.content,
+    sentAt: r.sent_at,
+    isRead: r.is_read,
+  };
+}
+
 export const GLASS_THRESHOLD = 5;
 
 // 1. 다음 익명 식별자 번호 발급 (RPC 호출)
@@ -127,20 +157,100 @@ export async function getUserReplies(userId: string): Promise<Reply[]> {
     return [];
   }
 
-  // DB 스네이크 케이스 필드를 캐멀 케이스로 매핑하여 반환
-  return (data || []).map((r: any) => ({
-    id: r.id,
-    confessionId: r.confession_id,
-    recipientId: r.recipient_id,
-    tone: r.tone,
-    content: r.content,
-    sentAt: r.sent_at,
-    isRead: r.is_read
-  }));
+  return (data || []).map((r) => mapDbReplyToSchema(r as DbReplyRow));
+}
+
+// 6b. 아직 도착하지 않은(봉인) 답장 조회
+export async function getPendingReplies(userId: string): Promise<PendingReply[]> {
+  const now = new Date();
+  const nowStr = now.toISOString();
+
+  const { data, error } = await supabase
+    .from('replies')
+    .select('id, confession_id, tone, sent_at')
+    .eq('recipient_id', userId)
+    .gt('sent_at', nowStr)
+    .order('sent_at', { ascending: true });
+
+  if (error) {
+    console.error('Failed to fetch pending replies from Supabase:', error);
+    return [];
+  }
+
+  return (data || []).map((r: {
+    id: string;
+    confession_id: string;
+    tone: 'angel' | 'devil';
+    sent_at: string;
+  }) => {
+    const sentAtMs = new Date(r.sent_at).getTime();
+    const remainingSeconds = Math.max(0, Math.ceil((sentAtMs - now.getTime()) / 1000));
+    return {
+      id: r.id,
+      confessionId: r.confession_id,
+      tone: r.tone,
+      sentAt: r.sent_at,
+      remainingSeconds,
+    };
+  });
+}
+
+// 6c. 답장 읽음 처리 (본인 recipient_id만)
+export async function markReplyAsRead(
+  replyId: string,
+  userId: string
+): Promise<{ success: boolean }> {
+  const { data, error } = await supabase
+    .from('replies')
+    .update({ is_read: true })
+    .eq('id', replyId)
+    .eq('recipient_id', userId)
+    .select('id');
+
+  if (error) {
+    console.error('Failed to mark reply as read:', error);
+    return { success: false };
+  }
+
+  if (!data || data.length === 0) {
+    return { success: false };
+  }
+
+  return { success: true };
+}
+
+// 6d. 도착·미읽음 답장 수
+export async function getUnreadReplyCount(userId: string): Promise<number> {
+  const nowStr = new Date().toISOString();
+
+  const { count, error } = await supabase
+    .from('replies')
+    .select('*', { count: 'exact', head: true })
+    .eq('recipient_id', userId)
+    .lte('sent_at', nowStr)
+    .eq('is_read', false);
+
+  if (error) {
+    console.error('Failed to count unread replies:', error);
+    return 0;
+  }
+
+  return count ?? 0;
 }
 
 // 7. 전체 DB 리스트 조회를 위한 Helper Mapper (Confession 맵핑)
-export function mapDbConfessionToSchema(raw: any): Confession {
+export function mapDbConfessionToSchema(raw: {
+  id: string;
+  author_id: string;
+  author_name: string;
+  content: string;
+  tone: string;
+  candles: number;
+  created_at: string;
+  expires_at: string;
+  is_archived: boolean;
+  candle_voters?: string[];
+}): Confession {
   return {
     id: raw.id,
     authorId: raw.author_id,
