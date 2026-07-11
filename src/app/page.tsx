@@ -598,10 +598,11 @@ export default function Home() {
             {...viewMotion}
             className="space-y-8"
           >
-            <div className="text-center space-y-2 mb-2">
-              <Flame className={`mx-auto h-5 w-5 text-flame fill-flame/25 ${motionReduced ? '' : 'animate-candle-flicker'}`} />
-              <h3 className="font-serif text-title text-text-hi">참회의 제단</h3>
-              <p className="text-caption text-text-mute tracking-[0.2em] uppercase">Confession Altar</p>
+            <div className="flex items-end justify-between border-b border-line pb-5">
+              <div>
+                <h3 className="font-serif text-title text-text-hi">참회의 제단</h3>
+                <p className="text-caption text-text-mute tracking-[0.2em] uppercase mt-1">Confession Altar</p>
+              </div>
             </div>
 
             {/* 고해 양식지 느낌의 극도 디자인 */}
@@ -723,7 +724,7 @@ export default function Home() {
             {...viewMotion}
             className="space-y-8"
           >
-            <div className="flex items-end justify-between border-b border-line pb-5 bg-[radial-gradient(circle_at_top_left,rgba(255,196,107,0.08),transparent_38%)]">
+            <div className="flex items-end justify-between border-b border-line pb-5">
               <div>
                 <h3 className="font-serif text-title text-text-hi">본당 회랑</h3>
                 <p className="text-caption text-text-mute tracking-[0.2em] uppercase mt-1">Cathedral Feed</p>
@@ -993,10 +994,11 @@ export default function Home() {
             {...viewMotion}
             className="space-y-8"
           >
-            <div className="border-b border-line pb-5">
-              <p className="text-caption text-flame tracking-[0.28em] uppercase mb-2">성소 설정</p>
-              <h3 className="font-serif text-title text-text-hi">성당 비축고</h3>
-              <p className="text-caption text-text-mute tracking-[0.2em] uppercase mt-1">Atmosphere Configuration</p>
+            <div className="flex items-end justify-between border-b border-line pb-5">
+              <div>
+                <h3 className="font-serif text-title text-text-hi">성당 비축고</h3>
+                <p className="text-caption text-text-mute tracking-[0.2em] uppercase mt-1">Atmosphere Configuration</p>
+              </div>
             </div>
 
             <div className="rounded-[24px] border border-line bg-surface/70 backdrop-blur-xl divide-y divide-line overflow-hidden shadow-card">
