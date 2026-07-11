@@ -56,12 +56,13 @@
   --text-body: 0.9375rem;
   --text-body--line-height: 1.8;
   --text-label: 0.8125rem;
-  --text-label--line-height: 1.5;
+  --text-label--line-height: 1.65;
   --text-caption: 0.75rem;
   --text-caption--line-height: 1.5;
-  --text-overline: 0.6875rem;
+  --text-overline: 0.6875rem; /* 라틴 전용. 한글에 letter-spacing 0.18em 적용 금지 */
   --text-overline--line-height: 1.4;
   --text-overline--letter-spacing: 0.18em;
+  --tracking-hangul: 0.03em;
 
   /* ── 라운딩 ── */
   --radius-sm: 10px;
@@ -134,6 +135,8 @@ body {
   font-family: var(--font-sans);
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 ::selection {
