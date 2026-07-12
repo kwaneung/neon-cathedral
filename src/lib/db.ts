@@ -200,13 +200,13 @@ export async function unarchiveConfession(
     return { success: false, error: '박제된 고해가 아닙니다.' };
   }
 
-  const nowStr = new Date().toISOString();
+  // 정산 모델에서 박제된 글은 이미 만료 이후이므로 expires_at 갱신 불필요 —
+  // 박제 자격만 반납하면 다음 정산(settle_expired_confessions)에서 삭제된다.
   const { data: updated, error: updateError } = await supabase
     .from('confessions')
     .update({
       is_archived: false,
       opted_out: true,
-      expires_at: nowStr,
     })
     .eq('id', confessionId)
     .eq('author_id', userId)
