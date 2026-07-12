@@ -135,7 +135,7 @@ export async function addConfession(confession: Omit<Confession, 'candles' | 'is
   }
 }
 
-// 3. 촛불 토글(켜기/끄기) 및 박제 로직 (RPC 호출로 원자적 처리)
+// 3. 촛불 토글(켜기/끄기) — 박제 판정은 만료 정산(settle)에서 수행
 export async function toggleCandle(
   confessionId: string,
   userId: string
@@ -159,25 +159,18 @@ export async function toggleCandle(
   return result;
 }
 
-// 4. 만료된 고민 글 삭제 (정리용 쿼리)
+// 4. 만료 고해 정산 (임계값 이상 → 박제, 미만 → 하드 삭제)
 export async function cleanExpiredConfessions(): Promise<void> {
-  const nowStr = new Date().toISOString();
-  
-  // RLS가 꺼져 있으므로 일반 anon 클라이언트로도 delete가 가능합니다.
-  const { error } = await supabase
-    .from('confessions')
-    .delete()
-    .eq('is_archived', false)
-    .lt('expires_at', nowStr);
+  const { error } = await supabase.rpc('settle_expired_confessions');
 
   if (error) {
-    console.error('Failed to clean expired confessions:', error);
+    console.error('Failed to settle expired confessions:', error);
   }
 }
 
 /**
  * FR-4.2: 작성자 박제 옵트아웃.
- * is_archived=false + opted_out=true + expires_at=now → 다음 cleanExpired에서 소멸.
+ * is_archived=false + opted_out=true + expires_at=now → 다음 settle_expired에서 삭제.
  * 후속 과제: 박제 시점 능동 알림(편지봉투 등)은 본 티켓 스코프 제외 — 본인 조각 UI로 대체.
  */
 export async function unarchiveConfession(
