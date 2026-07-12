@@ -69,10 +69,16 @@ export default function Home() {
   
   // UI 피드백 및 로딩 상태
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [viewLoadError, setViewLoadError] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [arrivalToastVisible, setArrivalToastVisible] = useState(false);
   const [selectedStainedConfession, setSelectedStainedConfession] = useState<Confession | null>(null);
+
+  // 뷰별 세션 캐시 적중 여부 (빈 배열도 유효 캐시로 취급)
+  const [hydratedViews, setHydratedViews] = useState<Partial<Record<ViewState, boolean>>>({});
+  const hydratedViewsRef = useRef(hydratedViews);
 
   const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const notifiedReplyIdsRef = useRef<Set<string>>(new Set());
@@ -98,6 +104,19 @@ export default function Home() {
     pendingRepliesRef.current = pendingReplies;
   }, [pendingReplies]);
 
+  useEffect(() => {
+    hydratedViewsRef.current = hydratedViews;
+  }, [hydratedViews]);
+
+  const markViewHydrated = useCallback((target: ViewState) => {
+    setHydratedViews((prev) => {
+      if (prev[target]) return prev;
+      const next = { ...prev, [target]: true };
+      hydratedViewsRef.current = next;
+      return next;
+    });
+  }, []);
+
   // 1. 유저 세션 및 설정 로드
   useEffect(() => {
     async function initSession() {
@@ -115,6 +134,7 @@ export default function Home() {
         setPendingReplies(pending);
         setReplies(arrived);
         setUnreadCount(unread);
+        markViewHydrated('LETTER_BOX');
       } catch (e) {
         console.error('Failed to load session:', e);
       }
@@ -131,7 +151,7 @@ export default function Home() {
     const onMotionChange = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
     mq.addEventListener('change', onMotionChange);
     return () => mq.removeEventListener('change', onMotionChange);
-  }, []);
+  }, [markViewHydrated]);
 
   // 2. 오디오 인스턴스 싱크 맞추기
   useEffect(() => {
@@ -162,8 +182,9 @@ export default function Home() {
     setPendingReplies(pending);
     setReplies(arrived);
     setUnreadCount(unread);
+    markViewHydrated('LETTER_BOX');
     return { pending, arrived, unread };
-  }, []);
+  }, [markViewHydrated]);
 
   const handleCountdownComplete = useCallback(async () => {
     await refreshLetterState({ notifyArrival: true });
@@ -176,28 +197,57 @@ export default function Home() {
     }
   };
 
-  const loadDataForCurrentView = async () => {
-    setIsLoading(true);
+  /**
+   * 뷰 데이터 로드 (stale-while-revalidate).
+   * - 캐시 없음: 로딩 UI 표시 후 최초 적재
+   * - 캐시 있음: 즉시 렌더 유지 + 백그라운드 재검증 후 조용히 스왑
+   * - reason=manual: 새로고침 버튼 스피너만 (콘텐츠 깜빡임 없음)
+   */
+  const loadDataForCurrentView = useCallback(async (opts?: { reason?: 'enter' | 'manual' | 'mutation' }) => {
+    const reason = opts?.reason ?? 'enter';
+    const currentView = viewRef.current;
+    const isDataView =
+      currentView === 'CATHEDRAL' ||
+      currentView === 'STAINED_GLASS' ||
+      currentView === 'LETTER_BOX';
+    const hasCache = !!hydratedViewsRef.current[currentView];
+    const isCold = isDataView && !hasCache;
+
+    if (isCold) {
+      setIsLoading(true);
+      setViewLoadError(null);
+    } else if (reason === 'manual') {
+      setIsRefreshing(true);
+    }
+
     try {
-      const currentView = viewRef.current;
       if (currentView === 'CATHEDRAL') {
         const data = await getFeedConfessionsAction();
         setConfessions(data);
+        markViewHydrated('CATHEDRAL');
         await refreshLetterState();
       } else if (currentView === 'STAINED_GLASS') {
         const data = await getStainedGlassAction();
         setStainedGlass(data);
+        markViewHydrated('STAINED_GLASS');
       } else if (currentView === 'LETTER_BOX') {
         await refreshLetterState();
       } else {
+        // CONFESS / SETTINGS 등: 편지 상태만 조용히 동기화 (제출 버튼 isLoading과 분리)
         await refreshLetterState();
       }
+      setViewLoadError(null);
     } catch (e) {
       console.error('Failed to load view data:', e);
+      // 캐시가 있으면 조용히 실패, 없으면 에러 UI
+      if (isCold) {
+        setViewLoadError('데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      }
     } finally {
-      setIsLoading(false);
+      if (isCold) setIsLoading(false);
+      if (reason === 'manual') setIsRefreshing(false);
     }
-  };
+  }, [markViewHydrated, refreshLetterState]);
 
   const startPolling = useCallback(() => {
     stopPolling();
@@ -213,15 +263,18 @@ export default function Home() {
         if (currentView === 'CATHEDRAL') {
           const data = await getFeedConfessionsAction();
           setConfessions(data);
+          markViewHydrated('CATHEDRAL');
         } else if (currentView === 'STAINED_GLASS') {
           const data = await getStainedGlassAction();
           setStainedGlass(data);
+          markViewHydrated('STAINED_GLASS');
         }
       } catch (e) {
+        // 폴링 실패는 캐시 유지 (무깜빡임)
         console.error('Polling error:', e);
       }
     }, intervalMs);
-  }, [refreshLetterState]);
+  }, [refreshLetterState, markViewHydrated]);
 
   // 3. 뷰 변경·pending 유무에 따라 데이터 로드 및 적응형 폴링
   useEffect(() => {
@@ -230,12 +283,12 @@ export default function Home() {
       return;
     }
 
-    loadDataForCurrentView();
+    setViewLoadError(null);
+    void loadDataForCurrentView({ reason: 'enter' });
     startPolling();
 
     return () => stopPolling();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, hasPending, startPolling]);
+  }, [view, hasPending, startPolling, loadDataForCurrentView]);
 
   useEffect(() => {
     if (!arrivalToastVisible) return;
@@ -337,6 +390,8 @@ export default function Home() {
         showSuccess('고민이 불꽃 속으로 완전히 소화(消火)되었습니다.');
         const pending = await getPendingRepliesAction();
         setPendingReplies(pending);
+        markViewHydrated('LETTER_BOX');
+        // 본당으로 이동 — 캐시가 있으면 즉시 표시 후 진입 effect가 조용히 재검증
         setView('CATHEDRAL');
         startPolling();
       } else {
@@ -735,11 +790,11 @@ export default function Home() {
                 <p className="text-caption text-text-mute tracking-[0.2em] uppercase mt-1">Cathedral Feed</p>
               </div>
               <button 
-                onClick={loadDataForCurrentView}
-                disabled={isLoading}
+                onClick={() => void loadDataForCurrentView({ reason: 'manual' })}
+                disabled={isLoading || isRefreshing}
                 className="h-11 w-11 rounded-full border border-line bg-surface/70 text-text-mute hover:text-text-hi hover:border-line-strong disabled:opacity-50 transition-all shadow-card flex items-center justify-center"
               >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${isRefreshing || (isLoading && !hydratedViews.CATHEDRAL) ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
@@ -753,10 +808,22 @@ export default function Home() {
               />
             )}
 
-            {isLoading && confessions.length === 0 ? (
+            {isLoading && !hydratedViews.CATHEDRAL ? (
               <div className="py-24 text-center space-y-4">
                 <div className="h-6 w-6 border-2 border-flame border-t-transparent rounded-full animate-spin mx-auto" />
                 <p className="text-caption text-text-mute animate-pulse">피드의 불을 지피는 중...</p>
+              </div>
+            ) : viewLoadError && !hydratedViews.CATHEDRAL ? (
+              <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-devil/40 bg-surface/40 px-8">
+                <AlertCircle className="h-10 w-10 text-devil mx-auto" />
+                <p className="text-sm font-serif text-text-body">{viewLoadError}</p>
+                <button
+                  type="button"
+                  onClick={() => void loadDataForCurrentView({ reason: 'manual' })}
+                  className="text-caption text-flame underline underline-offset-4"
+                >
+                  다시 시도
+                </button>
               </div>
             ) : confessions.length === 0 ? (
               <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-line bg-[linear-gradient(135deg,rgba(255,255,255,0.03)_0_25%,transparent_25%_50%,rgba(255,255,255,0.03)_50%_75%,transparent_75%)] bg-[length:18px_18px] px-8">
@@ -838,18 +905,30 @@ export default function Home() {
                 <p className="text-caption text-text-mute tracking-[0.2em] uppercase mt-1">Stained Glass Gallery</p>
               </div>
               <button 
-                onClick={loadDataForCurrentView}
-                disabled={isLoading}
+                onClick={() => void loadDataForCurrentView({ reason: 'manual' })}
+                disabled={isLoading || isRefreshing}
                 className="h-11 w-11 rounded-full border border-line bg-surface/70 text-text-mute hover:text-text-hi hover:border-line-strong disabled:opacity-50 transition-all shadow-card flex items-center justify-center"
               >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${isRefreshing || (isLoading && !hydratedViews.STAINED_GLASS) ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
-            {isLoading && stainedGlass.length === 0 ? (
+            {isLoading && !hydratedViews.STAINED_GLASS ? (
               <div className="py-24 text-center space-y-4">
                 <div className="h-6 w-6 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin mx-auto" />
                 <p className="text-caption text-text-mute animate-pulse">유리 벽화 조각을 깎는 중...</p>
+              </div>
+            ) : viewLoadError && !hydratedViews.STAINED_GLASS ? (
+              <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-devil/40 bg-surface/40 px-8">
+                <AlertCircle className="h-10 w-10 text-devil mx-auto" />
+                <p className="text-sm font-serif text-text-body">{viewLoadError}</p>
+                <button
+                  type="button"
+                  onClick={() => void loadDataForCurrentView({ reason: 'manual' })}
+                  className="text-caption text-flame underline underline-offset-4"
+                >
+                  다시 시도
+                </button>
               </div>
             ) : stainedGlass.length === 0 ? (
               <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-line bg-[linear-gradient(135deg,rgba(255,255,255,0.03)_0_25%,transparent_25%_50%,rgba(255,255,255,0.03)_50%_75%,transparent_75%)] bg-[length:18px_18px] px-8">
@@ -917,12 +996,12 @@ export default function Home() {
                 <p className="text-caption text-text-mute tracking-[0.2em] uppercase mt-1">Your Letters</p>
               </div>
               <button 
-                onClick={loadDataForCurrentView}
-                disabled={isLoading}
+                onClick={() => void loadDataForCurrentView({ reason: 'manual' })}
+                disabled={isLoading || isRefreshing}
                 className="h-11 w-11 rounded-full border border-line bg-surface/70 text-text-mute hover:text-text-hi hover:border-line-strong disabled:opacity-50 transition-all shadow-card flex items-center justify-center"
                 title="편지함 동기화"
               >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${isRefreshing || (isLoading && !hydratedViews.LETTER_BOX) ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
@@ -947,10 +1026,22 @@ export default function Home() {
               </div>
             </div>
 
-            {isLoading && replies.length === 0 && pendingReplies.length === 0 ? (
+            {isLoading && !hydratedViews.LETTER_BOX ? (
               <div className="py-24 text-center space-y-4">
                 <div className="h-6 w-6 border-2 border-devil border-t-transparent rounded-full animate-spin mx-auto" />
                 <p className="text-caption text-text-mute animate-pulse">우체통 비우는 중...</p>
+              </div>
+            ) : viewLoadError && !hydratedViews.LETTER_BOX ? (
+              <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-devil/40 bg-surface/40 px-8">
+                <AlertCircle className="h-10 w-10 text-devil mx-auto" />
+                <p className="text-sm font-serif text-text-body">{viewLoadError}</p>
+                <button
+                  type="button"
+                  onClick={() => void loadDataForCurrentView({ reason: 'manual' })}
+                  className="text-caption text-flame underline underline-offset-4"
+                >
+                  다시 시도
+                </button>
               </div>
             ) : replies.length === 0 && pendingReplies.length === 0 ? (
               <div className="py-24 text-center space-y-4 rounded-[24px] border border-dashed border-line bg-[linear-gradient(135deg,rgba(255,255,255,0.03)_0_25%,transparent_25%_50%,rgba(255,255,255,0.03)_50%_75%,transparent_75%)] bg-[length:18px_18px] px-8">
