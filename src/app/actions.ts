@@ -4,7 +4,7 @@ import { getOrCreateSession, getSession } from '@/lib/session';
 import { 
   addConfession, 
   addReply, 
-  addCandle, 
+  toggleCandle, 
   cleanExpiredConfessions, 
   getUserReplies,
   getPendingReplies,
@@ -80,27 +80,32 @@ export async function submitConfessionAction(
   }
 }
 
-// 2. 촛불 켜기 (공감)
+// 2. 촛불 토글 (켜기/끄기)
 export async function toggleCandleAction(
   confessionId: string
-): Promise<{ success: boolean; candles?: number; error?: string }> {
+): Promise<{ success: boolean; candles?: number; voted?: boolean; error?: string }> {
   try {
     const session = await getOrCreateSession();
-    
-    // 촛불 업데이트 (await 추가)
-    const result = await addCandle(confessionId, session.id);
-
-    if (!result.success) {
-      return { success: false, error: '이미 이 고해에 촛불을 밝혔습니다.' };
+    if (!confessionId) {
+      return { success: false, error: '고해 ID가 필요합니다.' };
     }
 
-    // 캐시 태그 업데이트
+    const result = await toggleCandle(confessionId, session.id);
+
+    if (!result.success) {
+      return { success: false, error: '촛불을 토글하지 못했습니다.' };
+    }
+
     updateTag('confessions');
 
-    return { success: true, candles: result.candles };
+    return {
+      success: true,
+      candles: result.candles,
+      voted: result.voted,
+    };
   } catch (error) {
     console.error('Failed to toggle candle:', error);
-    return { success: false, error: '촛불을 밝히는 중 오류가 발생했습니다.' };
+    return { success: false, error: '촛불을 토글하는 중 오류가 발생했습니다.' };
   }
 }
 

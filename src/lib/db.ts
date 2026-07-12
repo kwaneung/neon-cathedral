@@ -135,24 +135,27 @@ export async function addConfession(confession: Omit<Confession, 'candles' | 'is
   }
 }
 
-// 3. 촛불 업데이트 및 박제 로직 (RPC 호출로 원자적 처리)
-export async function addCandle(
-  confessionId: string, 
+// 3. 촛불 토글(켜기/끄기) 및 박제 로직 (RPC 호출로 원자적 처리)
+export async function toggleCandle(
+  confessionId: string,
   userId: string
-): Promise<{ success: boolean; candles: number; isArchived: boolean }> {
-  
-  const { data, error } = await supabase.rpc('increment_candle', {
+): Promise<{ success: boolean; candles: number; isArchived: boolean; voted: boolean }> {
+  const { data, error } = await supabase.rpc('toggle_candle', {
     confession_id: confessionId,
-    user_id: userId
+    user_id: userId,
   });
 
   if (error) {
-    console.error('Failed to execute increment_candle RPC:', error);
-    return { success: false, candles: 0, isArchived: false };
+    console.error('Failed to execute toggle_candle RPC:', error);
+    return { success: false, candles: 0, isArchived: false, voted: false };
   }
 
-  // RPC 반환 타입: { success: boolean, candles: number, isArchived: boolean }
-  const result = data as { success: boolean; candles: number; isArchived: boolean };
+  const result = data as {
+    success: boolean;
+    candles: number;
+    isArchived: boolean;
+    voted: boolean;
+  };
   return result;
 }
 
