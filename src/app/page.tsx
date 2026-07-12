@@ -84,6 +84,17 @@ export default function Home() {
   // 뷰별 세션 캐시 적중 여부 (빈 배열도 유효 캐시로 취급)
   const [hydratedViews, setHydratedViews] = useState<Partial<Record<ViewState, boolean>>>({});
   const hydratedViewsRef = useRef(hydratedViews);
+  // 뷰 진입 순간의 hydrated 스냅샷 — 카드 initial에서 hydratedViews를 직접 읽으면
+  // 첫 방문 데이터 도착과 같은 렌더에 입장 연출이 사라질 수 있음.
+  // view 변경을 렌더 단계에서 동기 반영해 자식 마운트 전에 확정한다.
+  const [skipListItemEntrance, setSkipListItemEntrance] = useState(false);
+  const [entranceSnapshotView, setEntranceSnapshotView] = useState(view);
+  if (entranceSnapshotView !== view) {
+    setEntranceSnapshotView(view);
+    if (view === 'CATHEDRAL' || view === 'STAINED_GLASS') {
+      setSkipListItemEntrance(!!hydratedViewsRef.current[view]);
+    }
+  }
 
   const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const notifiedReplyIdsRef = useRef<Set<string>>(new Set());
@@ -902,14 +913,15 @@ export default function Home() {
                   const isAuthor = userSession && c.authorId === userSession.id;
                   const voted = userSession && c.candleVoters.includes(userSession.id);
                   const onTrackForGlass = c.candles >= glassThreshold;
+                  const skipEntrance = motionReduced || skipListItemEntrance;
                   
                   return (
                     <motion.div 
                       key={c.id}
                       layout
-                      initial={motionReduced ? false : { opacity: 0, y: 12 }}
+                      initial={skipEntrance ? false : { opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: motionReduced ? 0 : Math.min(idx, 5) * 0.06, duration: 0.35, ease: [0.22, 1, 0.36, 1] as const }}
+                      transition={{ delay: skipEntrance ? 0 : Math.min(idx, 5) * 0.06, duration: 0.35, ease: [0.22, 1, 0.36, 1] as const }}
                       className="relative rounded-[24px] border border-line bg-surface/70 backdrop-blur-xl p-6 flex flex-col justify-between gap-6 hover:border-line-strong hover:shadow-card transition-all duration-300 overflow-hidden"
                     >
                       <div className={`absolute left-0 top-5 bottom-5 w-[2px] rounded-full ${c.tone === 'angel' ? 'bg-cyan-300/70' : 'bg-devil/70'}`} aria-hidden />
@@ -1018,6 +1030,7 @@ export default function Home() {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {stainedGlass.map((c, index) => {
                   const meta = getGlassLayout(index, c.candles, c.id);
+                  const skipEntrance = motionReduced || skipListItemEntrance;
                   
                   return (
                     <motion.div
@@ -1032,9 +1045,9 @@ export default function Home() {
                           setSelectedStainedConfession(c);
                         }
                       }}
-                      initial={motionReduced ? false : { opacity: 0, y: 12 }}
+                      initial={skipEntrance ? false : { opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: motionReduced ? 0 : meta.delay, duration: 0.4, ease: [0.22, 1, 0.36, 1] as const }}
+                      transition={{ delay: skipEntrance ? 0 : meta.delay, duration: 0.4, ease: [0.22, 1, 0.36, 1] as const }}
                       className={`glass-lancet relative aspect-[3/4] odd:mt-4 sm:odd:mt-6 bg-gradient-to-b cursor-pointer transition-all duration-[400ms] hover:z-10 hover:scale-[1.02] hover:brightness-115 p-4 pt-6 flex flex-col justify-between focus:outline-none focus-visible:ring-2 focus-visible:ring-flame/60 ${meta.colorStyle}`}
                     >
                       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgb(244_239_230/0.22),transparent_60%)]" />
