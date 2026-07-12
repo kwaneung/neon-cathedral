@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@fontsource/cormorant-garamond": "^5.2.11",
+    "@fontsource/gowun-batang": "^5.2.8",
+    "@fontsource/noto-sans-kr": "^5.2.9",
     "@supabase/supabase-js": "^2.110.1",
     "lucide-react": "^1.23.0",
     "motion": "^12.42.2",

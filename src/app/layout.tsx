@@ -1,24 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Gowun_Batang, Cormorant_Garamond, Noto_Sans_KR } from "next/font/google";
+import "@fontsource/noto-sans-kr/300.css";
+import "@fontsource/noto-sans-kr/400.css";
+import "@fontsource/noto-sans-kr/500.css";
+import "@fontsource/noto-sans-kr/700.css";
+import "@fontsource/gowun-batang/400.css";
+import "@fontsource/gowun-batang/700.css";
+import "@fontsource/cormorant-garamond/400.css";
+import "@fontsource/cormorant-garamond/500.css";
+import "@fontsource/cormorant-garamond/600.css";
 import "./globals.css";
-
-const gowun = Gowun_Batang({
-  variable: "--font-gowun",
-  weight: ["400", "700"],
-  subsets: ["latin"],
-});
-
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
-  weight: ["400", "500", "600"],
-  subsets: ["latin"],
-});
-
-const notoSans = Noto_Sans_KR({
-  variable: "--font-noto",
-  weight: ["300", "400", "500", "700"],
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "네온 성당 | Neon Cathedral",
@@ -41,7 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${gowun.variable} ${cormorant.variable} ${notoSans.variable} h-full antialiased dark`}
+      className="h-full antialiased dark"
       style={{ colorScheme: "dark" }}
     >
       <body className="min-h-dvh bg-nave font-sans text-text-body">

@@ -4,9 +4,9 @@
    폰트 매핑 (layout.tsx의 next/font 변수와 연결)
    ───────────────────────────────────────────── */
 @theme inline {
-  --font-sans: var(--font-noto), "Noto Sans KR", sans-serif;
-  --font-serif: var(--font-gowun), "Gowun Batang", serif;
-  --font-display: var(--font-cormorant), "Cormorant Garamond", serif;
+  --font-sans: "Noto Sans KR", sans-serif;
+  --font-serif: "Gowun Batang", serif;
+  --font-display: "Cormorant Garamond", serif;
 }
 
 @theme {
