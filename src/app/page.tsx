@@ -698,7 +698,7 @@ export default function Home() {
               </div>
               <div className="flex gap-3">
                 <span className="font-display text-heading text-flame">Ⅱ</span>
-                <p>작성된 모든 고해는 불꽃으로 소멸된 뒤 24시간 후 서버에서 영구 삭제됩니다. 단, {glassThreshold}촛불 이상의 공감을 얻은 고민은 영원불멸의 스테인드글라스 벽화로 박제됩니다.</p>
+                <p>작성된 모든 고해는 불꽃으로 소멸된 뒤 24시간 후 서버에서 영구 삭제됩니다. 단, 소멸의 순간까지 {glassThreshold}촛불이 지켜진 고민은 영원불멸의 스테인드글라스 벽화로 박제됩니다.</p>
               </div>
               <div className="flex gap-3">
                 <span className="font-display text-heading text-flame">Ⅲ</span>
@@ -901,6 +901,7 @@ export default function Home() {
                 {confessions.map((c, idx) => {
                   const isAuthor = userSession && c.authorId === userSession.id;
                   const voted = userSession && c.candleVoters.includes(userSession.id);
+                  const onTrackForGlass = c.candles >= glassThreshold;
                   
                   return (
                     <motion.div 
@@ -914,14 +915,14 @@ export default function Home() {
                       <div className={`absolute left-0 top-5 bottom-5 w-[2px] rounded-full ${c.tone === 'angel' ? 'bg-cyan-300/70' : 'bg-devil/70'}`} aria-hidden />
                       {/* 카드 헤더 */}
                       <div className="flex justify-between items-center text-caption text-text-mute border-b border-line pb-3.5 gap-4">
-                        <span className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${c.tone === 'angel' ? 'bg-cyan-300' : 'bg-devil'}`} />
-                          <span className="font-sans font-medium tracking-wider break-keep">{c.authorName}</span>
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${c.tone === 'angel' ? 'bg-cyan-300' : 'bg-devil'}`} />
+                          <span className="font-sans font-medium tracking-wider break-keep truncate">{c.authorName}</span>
                           {isAuthor && (
-                            <span className="text-[10px] font-sans font-bold text-on-flame bg-flame px-2 py-0.5 rounded-full">나</span>
+                            <span className="text-[10px] font-sans font-bold text-on-flame bg-flame px-2 py-0.5 rounded-full shrink-0">나</span>
                           )}
                         </span>
-                        <span className="flex items-center gap-1.5 text-text-mute font-sans text-right break-keep">
+                        <span className="flex items-center gap-1.5 text-text-mute font-sans text-right break-keep shrink-0">
                           <Clock className="h-3 w-3 text-text-faint" />
                           {getRemainingTimeText(c.expiresAt)}
                         </span>
@@ -932,11 +933,21 @@ export default function Home() {
                         {c.content}
                       </p>
 
+                      {/* 박제 예고 배지 (만료 정산형) */}
+                      {onTrackForGlass && (
+                        <div className="flex items-center gap-2 rounded-[14px] border border-flame/20 bg-flame/[0.06] px-3 py-2">
+                          <Flame className={`h-3.5 w-3.5 shrink-0 text-flame/80 fill-flame/25 ${motionReduced ? '' : 'animate-candle-flicker'}`} />
+                          <span className="text-caption font-sans text-flame/85 leading-snug break-keep">
+                            이대로 지켜지면 벽화에 박제됩니다
+                          </span>
+                        </div>
+                      )}
+
                       {/* 촛불 버튼 및 상세 안내 */}
                       <div className="flex justify-between items-center border-t border-line pt-4 mt-2 gap-4">
-                        <div className="flex items-center gap-1.5 text-caption text-text-mute font-sans break-keep">
+                        <div className="flex items-center gap-1.5 text-caption text-text-mute font-sans break-keep min-w-0">
                           <Info className="h-3.5 w-3.5 text-text-faint shrink-0" />
-                          <span>{glassThreshold}촛불 획득 시 벽화에 영원히 박제됩니다</span>
+                          <span>소멸의 순간까지 {glassThreshold}촛불이 지켜지면 벽화에 영원히 박제됩니다</span>
                         </div>
 
                         <CandleButton 
@@ -999,7 +1010,7 @@ export default function Home() {
                 <Grid className="h-10 w-10 text-text-faint mx-auto" />
                 <p className="text-sm font-serif text-text-body">박제된 사연이 아직 없습니다.</p>
                 <p className="text-label text-text-mute leading-relaxed">
-                  본당의 글에 {glassThreshold}개 이상의 촛불을 켜주세요.<br />
+                  소멸의 순간까지 {glassThreshold}촛불이 지켜진 고해가<br />
                   이 벽면에 영롱한 빛을 내는 조각으로 기록됩니다.
                 </p>
               </div>
@@ -1263,7 +1274,7 @@ export default function Home() {
                 <span className="block font-bold text-text-body mb-1">개인정보 취급 & 소멸 규정</span>
                 <p>• 네온 성당은 회원가입을 지원하지 않으며, 클라이언트 쿠키 토큰은 오직 익명 식별을 위한 용도로만 브라우저 내에 국한되어 보관됩니다.</p>
                 <p>• 태워진 고해 글은 24시간의 노출 기한 경과 시 데이터베이스에서 하드 삭제(Hard-Delete) 처리되며 어떠한 백업본도 남겨두지 않습니다.</p>
-                <p>• 단, {glassThreshold}촛불 이상의 깊은 공감을 달성하여 &apos;스테인드글라스 벽화&apos;로 보존 판정을 받은 흔적은 이 공간에 예술 조각으로 영원히 보존됩니다.</p>
+                <p>• 단, 소멸의 순간까지 {glassThreshold}촛불이 지켜져 &apos;스테인드글라스 벽화&apos;로 보존 판정을 받은 흔적은 이 공간에 예술 조각으로 영원히 보존됩니다.</p>
               </div>
 
             </div>
