@@ -10,10 +10,12 @@ import {
   markReplyAsReadAction,
   getUnreadReplyCountAction,
   getStainedGlassAction, 
-  getCurrentUserSession 
+  getCurrentUserSession,
+  getGlassThresholdAction,
+  optOutStainedGlassAction,
 } from './actions';
 import { getLofiSynth } from '@/lib/audio';
-import { Confession, Reply, PendingReply } from '@/lib/db';
+import { Confession, Reply, PendingReply, DEFAULT_GLASS_THRESHOLD } from '@/lib/db';
 import { UserSession } from '@/lib/session';
 import { CandleButton } from '@/components/CandleButton';
 import { BurnEffect } from '@/components/BurnEffect';
@@ -75,6 +77,9 @@ export default function Home() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [arrivalToastVisible, setArrivalToastVisible] = useState(false);
   const [selectedStainedConfession, setSelectedStainedConfession] = useState<Confession | null>(null);
+  const [glassThreshold, setGlassThreshold] = useState(DEFAULT_GLASS_THRESHOLD);
+  const [optOutConfirmOpen, setOptOutConfirmOpen] = useState(false);
+  const [isOptingOut, setIsOptingOut] = useState(false);
 
   // 뷰별 세션 캐시 적중 여부 (빈 배열도 유효 캐시로 취급)
   const [hydratedViews, setHydratedViews] = useState<Partial<Record<ViewState, boolean>>>({});
@@ -132,10 +137,11 @@ export default function Home() {
       try {
         const session = await getCurrentUserSession();
         setUserSession(session);
-        const [pending, arrived, unread] = await Promise.all([
+        const [pending, arrived, unread, threshold] = await Promise.all([
           getPendingRepliesAction(),
           getUserRepliesAction(),
           getUnreadReplyCountAction(),
+          getGlassThresholdAction(),
         ]);
         for (const reply of arrived) {
           if (!reply.isRead) notifiedReplyIdsRef.current.add(reply.id);
@@ -143,6 +149,7 @@ export default function Home() {
         setPendingReplies(pending);
         setReplies(arrived);
         setUnreadCount(unread);
+        setGlassThreshold(threshold);
         markViewHydrated('LETTER_BOX');
       } catch (e) {
         console.error('Failed to load session:', e);
@@ -306,14 +313,46 @@ export default function Home() {
   }, [arrivalToastVisible]);
 
   useEffect(() => {
-    if (!selectedStainedConfession) return;
+    if (!selectedStainedConfession) {
+      setOptOutConfirmOpen(false);
+      setIsOptingOut(false);
+      return;
+    }
     closeStainedDialogButtonRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelectedStainedConfession(null);
+      if (event.key === 'Escape') {
+        if (optOutConfirmOpen) {
+          setOptOutConfirmOpen(false);
+        } else {
+          setSelectedStainedConfession(null);
+        }
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedStainedConfession]);
+  }, [selectedStainedConfession, optOutConfirmOpen]);
+
+  const handleOptOutStainedGlass = async () => {
+    if (!selectedStainedConfession || isOptingOut) return;
+    const targetId = selectedStainedConfession.id;
+    setIsOptingOut(true);
+    try {
+      const res = await optOutStainedGlassAction(targetId);
+      if (!res.success) {
+        showError(res.error || '박제를 해제하지 못했습니다.');
+        return;
+      }
+      setStainedGlass((prev) => prev.filter((c) => c.id !== targetId));
+      setSelectedStainedConfession(null);
+      setOptOutConfirmOpen(false);
+      showSuccess('박제가 해제되었습니다. 이 고해는 소멸의 길로 돌아갑니다.');
+      void loadDataForCurrentView({ reason: 'mutation' });
+    } catch (_e) {
+      showError('박제 해제 중 오류가 발생했습니다.');
+    } finally {
+      setIsOptingOut(false);
+    }
+  };
 
   // 4. 성당 입장 (사운드 락 해제 및 재생 시작)
   const handleEnterCathedral = () => {
@@ -649,7 +688,7 @@ export default function Home() {
               </div>
               <div className="flex gap-3">
                 <span className="font-display text-heading text-flame">Ⅱ</span>
-                <p>작성된 모든 고해는 불꽃으로 소멸된 뒤 24시간 후 서버에서 영구 삭제됩니다. 단, 5촛불 이상의 공감을 얻은 고민은 영원불멸의 스테인드글라스 벽화로 박제됩니다.</p>
+                <p>작성된 모든 고해는 불꽃으로 소멸된 뒤 24시간 후 서버에서 영구 삭제됩니다. 단, {glassThreshold}촛불 이상의 공감을 얻은 고민은 영원불멸의 스테인드글라스 벽화로 박제됩니다.</p>
               </div>
               <div className="flex gap-3">
                 <span className="font-display text-heading text-flame">Ⅲ</span>
@@ -887,7 +926,7 @@ export default function Home() {
                       <div className="flex justify-between items-center border-t border-line pt-4 mt-2 gap-4">
                         <div className="flex items-center gap-1.5 text-caption text-text-mute font-sans break-keep">
                           <Info className="h-3.5 w-3.5 text-text-faint shrink-0" />
-                          <span>5촛불 획득 시 벽화에 영원히 박제됩니다</span>
+                          <span>{glassThreshold}촛불 획득 시 벽화에 영원히 박제됩니다</span>
                         </div>
 
                         <CandleButton 
@@ -950,7 +989,7 @@ export default function Home() {
                 <Grid className="h-10 w-10 text-text-faint mx-auto" />
                 <p className="text-sm font-serif text-text-body">박제된 사연이 아직 없습니다.</p>
                 <p className="text-label text-text-mute leading-relaxed">
-                  본당의 글에 5개 이상의 촛불을 켜주세요.<br />
+                  본당의 글에 {glassThreshold}개 이상의 촛불을 켜주세요.<br />
                   이 벽면에 영롱한 빛을 내는 조각으로 기록됩니다.
                 </p>
               </div>
@@ -1214,7 +1253,7 @@ export default function Home() {
                 <span className="block font-bold text-text-body mb-1">개인정보 취급 & 소멸 규정</span>
                 <p>• 네온 성당은 회원가입을 지원하지 않으며, 클라이언트 쿠키 토큰은 오직 익명 식별을 위한 용도로만 브라우저 내에 국한되어 보관됩니다.</p>
                 <p>• 태워진 고해 글은 24시간의 노출 기한 경과 시 데이터베이스에서 하드 삭제(Hard-Delete) 처리되며 어떠한 백업본도 남겨두지 않습니다.</p>
-                <p>• 단, 5촛불 이상의 깊은 공감을 달성하여 '스테인드글라스 벽화'로 보존 판정을 받은 흔적은 이 공간에 예술 조각으로 영원히 보존됩니다.</p>
+                <p>• 단, {glassThreshold}촛불 이상의 깊은 공감을 달성하여 &apos;스테인드글라스 벽화&apos;로 보존 판정을 받은 흔적은 이 공간에 예술 조각으로 영원히 보존됩니다.</p>
               </div>
 
             </div>
@@ -1368,6 +1407,49 @@ export default function Home() {
                   — {selectedStainedConfession.authorName}의 사유
                 </div>
               </div>
+
+              {/* FR-4.2: 본인 조각에만 옵트아웃 UI. 후속: 박제 시점 능동 알림(편지봉투 등)은 스코프 제외 */}
+              {userSession && selectedStainedConfession.authorId === userSession.id && (
+                <div className="relative z-10 space-y-3 rounded-[18px] border border-line bg-crypt/40 p-4">
+                  <p className="text-label font-serif text-text-body leading-relaxed">
+                    이 고해는 당신의 것입니다.
+                  </p>
+                  {!optOutConfirmOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => setOptOutConfirmOpen(true)}
+                      className="w-full py-3 rounded-full border border-devil/35 bg-devil/10 text-caption font-sans font-semibold text-rose-100 hover:bg-devil/15 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-devil/50"
+                    >
+                      박제 해제
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-label text-text-mute leading-relaxed">
+                        박제를 해제하면 이 조각은 벽화에서 사라지고, 다시 소멸 절차로 돌아갑니다.
+                        되돌릴 수 없습니다.
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <button
+                          type="button"
+                          disabled={isOptingOut}
+                          onClick={() => void handleOptOutStainedGlass()}
+                          className="flex-1 py-3 rounded-full bg-devil/90 text-on-flame text-caption font-sans font-semibold hover:brightness-110 disabled:opacity-50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-devil/50"
+                        >
+                          {isOptingOut ? '해제하는 중…' : '확인하고 해제'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isOptingOut}
+                          onClick={() => setOptOutConfirmOpen(false)}
+                          className="flex-1 py-3 rounded-full border border-line bg-surface-raised text-text-body text-caption font-sans font-semibold hover:border-line-strong disabled:opacity-50 transition-colors"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <button
                 ref={closeStainedDialogButtonRef}

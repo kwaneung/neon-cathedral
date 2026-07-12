@@ -11,6 +11,7 @@ export interface Confession {
   expiresAt: string;
   isArchived: boolean;
   candleVoters: string[];
+  optedOut?: boolean;
 }
 
 export interface Reply {
@@ -53,7 +54,53 @@ function mapDbReplyToSchema(r: DbReplyRow): Reply {
   };
 }
 
-export const GLASS_THRESHOLD = 5;
+export const DEFAULT_GLASS_THRESHOLD = 5;
+
+let glassThresholdCache: { value: number; fetchedAt: number } | null = null;
+const GLASS_THRESHOLD_CACHE_MS = 60_000;
+
+/** FR-4.5: app_settings.glass_threshold 조회. 실패 시 100 폴백. 요청 간 간단 캐시. */
+export async function getGlassThreshold(): Promise<number> {
+  const now = Date.now();
+  if (
+    glassThresholdCache &&
+    now - glassThresholdCache.fetchedAt < GLASS_THRESHOLD_CACHE_MS
+  ) {
+    return glassThresholdCache.value;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'glass_threshold')
+      .maybeSingle();
+
+    if (error || data == null) {
+      console.error('Failed to load glass_threshold; using fallback 100:', error);
+      return DEFAULT_GLASS_THRESHOLD;
+    }
+
+    const raw = data.value;
+    const parsed =
+      typeof raw === 'number'
+        ? raw
+        : typeof raw === 'string'
+          ? Number(raw)
+          : Number(raw);
+
+    const value =
+      Number.isFinite(parsed) && parsed > 0
+        ? Math.floor(parsed)
+        : DEFAULT_GLASS_THRESHOLD;
+
+    glassThresholdCache = { value, fetchedAt: now };
+    return value;
+  } catch (e) {
+    console.error('getGlassThreshold error; using fallback 100:', e);
+    return DEFAULT_GLASS_THRESHOLD;
+  }
+}
 
 // 1. 다음 익명 식별자 번호 발급 (RPC 호출)
 export async function getNextVisitorNumber(): Promise<number> {
@@ -78,6 +125,7 @@ export async function addConfession(confession: Omit<Confession, 'candles' | 'is
     expires_at: confession.expiresAt,
     candles: 0,
     is_archived: false,
+    opted_out: false,
     candle_voters: []
   });
 
@@ -122,6 +170,62 @@ export async function cleanExpiredConfessions(): Promise<void> {
   if (error) {
     console.error('Failed to clean expired confessions:', error);
   }
+}
+
+/**
+ * FR-4.2: 작성자 박제 옵트아웃.
+ * is_archived=false + opted_out=true + expires_at=now → 다음 cleanExpired에서 소멸.
+ * 후속 과제: 박제 시점 능동 알림(편지봉투 등)은 본 티켓 스코프 제외 — 본인 조각 UI로 대체.
+ */
+export async function unarchiveConfession(
+  confessionId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  const { data: row, error: fetchError } = await supabase
+    .from('confessions')
+    .select('id, author_id, is_archived')
+    .eq('id', confessionId)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error('Failed to fetch confession for opt-out:', fetchError);
+    return { success: false, error: '박제 해제에 실패했습니다.' };
+  }
+
+  if (!row) {
+    return { success: false, error: '해당 고해를 찾을 수 없습니다.' };
+  }
+
+  if (row.author_id !== userId) {
+    return { success: false, error: '본인이 작성한 고해만 박제를 해제할 수 있습니다.' };
+  }
+
+  if (!row.is_archived) {
+    return { success: false, error: '박제된 고해가 아닙니다.' };
+  }
+
+  const nowStr = new Date().toISOString();
+  const { data: updated, error: updateError } = await supabase
+    .from('confessions')
+    .update({
+      is_archived: false,
+      opted_out: true,
+      expires_at: nowStr,
+    })
+    .eq('id', confessionId)
+    .eq('author_id', userId)
+    .select('id');
+
+  if (updateError) {
+    console.error('Failed to unarchive confession:', updateError);
+    return { success: false, error: '박제 해제에 실패했습니다.' };
+  }
+
+  if (!updated || updated.length === 0) {
+    return { success: false, error: '박제 해제에 실패했습니다.' };
+  }
+
+  return { success: true };
 }
 
 // 5. 답장 추가
@@ -250,6 +354,7 @@ export function mapDbConfessionToSchema(raw: {
   expires_at: string;
   is_archived: boolean;
   candle_voters?: string[];
+  opted_out?: boolean;
 }): Confession {
   return {
     id: raw.id,
@@ -261,6 +366,7 @@ export function mapDbConfessionToSchema(raw: {
     createdAt: raw.created_at,
     expiresAt: raw.expires_at,
     isArchived: raw.is_archived,
-    candleVoters: raw.candle_voters || []
+    candleVoters: raw.candle_voters || [],
+    optedOut: raw.opted_out ?? false,
   };
 }
