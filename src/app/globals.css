@@ -253,3 +253,14 @@ textarea {
     animation: none !important;
   }
 }
+
+/* 앱 내 애니메이션 간소화 토글 (html.reduce-motion) — OS 설정과 동일하게 글로우/파티클 모션 정지 */
+html.reduce-motion .god-ray,
+html.reduce-motion .candle-pool,
+html.reduce-motion .animate-candle-flicker,
+html.reduce-motion .animate-view-enter,
+html.reduce-motion .animate-letter-seal-open,
+html.reduce-motion .animate-banner-enter,
+html.reduce-motion .animate-banner-exit {
+  animation: none !important;
+}

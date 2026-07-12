@@ -167,9 +167,9 @@ export function SealedLetterCard({
             <Lock className="h-5 w-5" />
           </div>
           <div className="flex w-full flex-col gap-2 px-2">
-            <div className="h-3 rounded bg-surface-raised blur-[2px]" />
-            <div className="h-3 w-5/6 rounded bg-surface-raised blur-[2px]" />
-            <div className="h-3 w-2/3 rounded bg-surface-raised blur-[2px]" />
+            <div className="h-3 rounded bg-line-strong/40 blur-[2px]" />
+            <div className="h-3 w-5/6 rounded bg-line-strong/40 blur-[2px]" />
+            <div className="h-3 w-2/3 rounded bg-line-strong/40 blur-[2px]" />
           </div>
         </div>
 

@@ -11,6 +11,8 @@ interface CandleButtonProps {
   onVoteSuccess: (newCandles: number) => void;
   onVoteError: (errorMsg: string) => void;
   onToggleVote: (confessionId: string) => Promise<{ success: boolean; candles?: number; error?: string }>;
+  /** 부모에서 전달 시 앱 토글과 즉시 동기화 (미전달 시 OS/localStorage 폴백) */
+  reducedMotion?: boolean;
 }
 
 function useMotionReduced(): boolean {
@@ -43,7 +45,8 @@ export const CandleButton: React.FC<CandleButtonProps> = ({
   hasVoted,
   onVoteSuccess,
   onVoteError,
-  onToggleVote
+  onToggleVote,
+  reducedMotion: reducedMotionProp,
 }) => {
   const [candles, setCandles] = useState(initialCandles);
   const [voted, setVoted] = useState(hasVoted);
@@ -51,7 +54,8 @@ export const CandleButton: React.FC<CandleButtonProps> = ({
   const [isPressing, setIsPressing] = useState(false);
   const [justLit, setJustLit] = useState(false);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const motionReduced = useMotionReduced();
+  const systemMotionReduced = useMotionReduced();
+  const motionReduced = reducedMotionProp ?? systemMotionReduced;
 
   useEffect(() => {
     setCandles(initialCandles);
