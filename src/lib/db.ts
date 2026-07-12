@@ -54,7 +54,7 @@ function mapDbReplyToSchema(r: DbReplyRow): Reply {
   };
 }
 
-export const DEFAULT_GLASS_THRESHOLD = 100;
+export const DEFAULT_GLASS_THRESHOLD = 5;
 
 let glassThresholdCache: { value: number; fetchedAt: number } | null = null;
 const GLASS_THRESHOLD_CACHE_MS = 60_000;

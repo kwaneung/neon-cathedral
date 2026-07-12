@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS public.app_settings (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- 시드: 박제 임계값 100 (FR-4.1 / FR-4.5)
+-- 시드: 박제 임계값 5 (FR-4.1 / FR-4.5)
 INSERT INTO public.app_settings (key, value)
-VALUES ('glass_threshold', '100'::jsonb)
+VALUES ('glass_threshold', '5'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
 -- 2) 작성자 옵트아웃 컬럼
@@ -24,7 +24,7 @@ ALTER TABLE public.confessions
 COMMENT ON COLUMN public.confessions.opted_out IS
   '작성자가 스테인드글라스 박제를 거부한 경우 true. 박제 판정에서 제외되며, 해제 시 expires_at을 현재로 두어 정리 주기에 소멸.';
 
--- 3) increment_candle: 임계값은 app_settings 조회(없으면 100), opted_out이면 박제 제외
+-- 3) increment_candle: 임계값은 app_settings 조회(없으면 5), opted_out이면 박제 제외
 CREATE OR REPLACE FUNCTION public.increment_candle(
   confession_id text,
   user_id text
@@ -72,7 +72,7 @@ BEGIN
     );
   END IF;
 
-  -- app_settings.glass_threshold (jsonb number|string). 없거나 비정상이면 100
+  -- app_settings.glass_threshold (jsonb number|string). 없거나 비정상이면 5
   SELECT
     CASE
       WHEN s.value IS NULL THEN NULL
@@ -85,7 +85,7 @@ BEGIN
   WHERE s.key = 'glass_threshold';
 
   IF v_threshold IS NULL OR v_threshold <= 0 THEN
-    v_threshold := 100;
+    v_threshold := 5;
   END IF;
 
   v_voters := array_append(v_voters, user_id);
