@@ -479,11 +479,21 @@ export default function Home() {
     setUnreadCount((prev) => Math.max(0, prev - 1));
   };
 
-  const handleVoteSuccess = (confessionId: string, newCandles: number) => {
-    setConfessions(prev => 
-      prev.map(c => c.id === confessionId ? { ...c, candles: newCandles, candleVoters: [...c.candleVoters, userSession?.id || ''] } : c)
+  const handleVoteSuccess = (confessionId: string, newCandles: number, voted: boolean) => {
+    const uid = userSession?.id;
+    setConfessions((prev) =>
+      prev.map((c) => {
+        if (c.id !== confessionId) return c;
+        const voters = c.candleVoters.filter((id) => id !== uid);
+        if (voted && uid) voters.push(uid);
+        return { ...c, candles: newCandles, candleVoters: voters };
+      })
     );
-    showSuccess('조용히 마음의 온기(촛불)를 지폈습니다.');
+    showSuccess(
+      voted
+        ? '조용히 마음의 온기(촛불)를 지폈습니다.'
+        : '촛불을 거두었습니다. 온기는 잠시 사그라듭니다.'
+    );
   };
 
   const handleVoteError = (errorMsg: string) => {
@@ -933,7 +943,7 @@ export default function Home() {
                           confessionId={c.id}
                           initialCandles={c.candles}
                           hasVoted={!!voted}
-                          onVoteSuccess={(newVal) => handleVoteSuccess(c.id, newVal)}
+                          onVoteSuccess={(newVal, nextVoted) => handleVoteSuccess(c.id, newVal, nextVoted)}
                           onVoteError={handleVoteError}
                           onToggleVote={toggleCandleAction}
                           reducedMotion={motionReduced}
