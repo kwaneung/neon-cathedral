@@ -85,6 +85,7 @@ export default function Home() {
   const pendingRepliesRef = useRef<PendingReply[]>([]);
   const viewRef = useRef(view);
   const closeStainedDialogButtonRef = useRef<HTMLButtonElement | null>(null);
+  const audioUnlockHintShownRef = useRef(false);
 
   const motionReduced = reducedMotion || prefersReducedMotion;
   const earliestPending = pendingReplies[0] ?? null;
@@ -107,6 +108,14 @@ export default function Home() {
   useEffect(() => {
     hydratedViewsRef.current = hydratedViews;
   }, [hydratedViews]);
+
+  // 앱 토글 + OS prefers-reduced-motion → 전역 CSS 앰비언트 글로우/애니메이션 연동
+  useEffect(() => {
+    document.documentElement.classList.toggle('reduce-motion', motionReduced);
+    return () => {
+      document.documentElement.classList.remove('reduce-motion');
+    };
+  }, [motionReduced]);
 
   const markViewHydrated = useCallback((target: ViewState) => {
     setHydratedViews((prev) => {
@@ -314,6 +323,11 @@ export default function Home() {
       setAudioPlaying(true);
     } catch (e) {
       console.error('Audio start failed', e);
+      if (!audioUnlockHintShownRef.current) {
+        audioUnlockHintShownRef.current = true;
+        setSuccessMsg('성당이 고요합니다. 우측 상단의 음향을 직접 켜 주세요.');
+        window.setTimeout(() => setSuccessMsg(null), 4500);
+      }
     }
     setView('CONFESS');
   };
@@ -883,6 +897,7 @@ export default function Home() {
                           onVoteSuccess={(newVal) => handleVoteSuccess(c.id, newVal)}
                           onVoteError={handleVoteError}
                           onToggleVote={toggleCandleAction}
+                          reducedMotion={motionReduced}
                         />
                       </div>
                     </motion.div>
@@ -969,7 +984,7 @@ export default function Home() {
                         {c.candles}
                       </div>
 
-                      <p className="relative z-10 line-clamp-4 overflow-hidden break-keep font-serif text-caption italic leading-relaxed">
+                      <p className="relative z-10 line-clamp-4 overflow-hidden break-keep font-sans text-caption leading-relaxed text-text-hi/90">
                         &ldquo;{c.content}&rdquo;
                       </p>
 
@@ -1100,7 +1115,7 @@ export default function Home() {
             <div className="rounded-[24px] border border-line bg-surface/70 backdrop-blur-xl divide-y divide-line overflow-hidden shadow-card">
               
               {/* BGM 제어 */}
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <div className="flex justify-between items-center">
                   <div className="space-y-1">
                     <label className="text-sm text-text-hi font-serif font-medium flex items-center gap-2.5">
@@ -1151,10 +1166,10 @@ export default function Home() {
               </div>
 
               {/* 접근성 제어 */}
-              <div className="p-6 flex justify-between items-center">
-                <div className="space-y-1 pr-6">
+              <div className="p-4 sm:p-6 flex justify-between items-center gap-3">
+                <div className="space-y-1 pr-2 sm:pr-6 min-w-0">
                   <label className="text-sm text-text-hi font-serif font-medium flex items-center gap-2.5">
-                    <Sparkles className="h-4.5 w-4.5 text-text-mute" />
+                    <Sparkles className="h-4.5 w-4.5 text-text-mute shrink-0" />
                     애니메이션 간소화 (Reduced Motion)
                   </label>
                   <p className="text-label text-text-mute leading-relaxed">
@@ -1183,7 +1198,7 @@ export default function Home() {
 
               {/* 익명 토큰 뱃지 */}
               {userSession && (
-                <div className="p-6 space-y-2">
+                <div className="p-4 sm:p-6 space-y-2">
                   <span className="text-caption font-sans text-text-mute block">나의 고유 세션 데이터</span>
                   <div className="bg-crypt/50 border border-line p-4 rounded-[18px] space-y-1">
                     <span className="text-sm text-text-hi font-serif font-bold block">식별자: {userSession.name}</span>
@@ -1195,7 +1210,7 @@ export default function Home() {
               )}
 
               {/* 프라이버시 조항 */}
-              <div className="p-6 text-label text-text-mute font-serif leading-relaxed space-y-2">
+              <div className="p-4 sm:p-6 text-label text-text-mute font-serif leading-relaxed space-y-2">
                 <span className="block font-bold text-text-body mb-1">개인정보 취급 & 소멸 규정</span>
                 <p>• 네온 성당은 회원가입을 지원하지 않으며, 클라이언트 쿠키 토큰은 오직 익명 식별을 위한 용도로만 브라우저 내에 국한되어 보관됩니다.</p>
                 <p>• 태워진 고해 글은 24시간의 노출 기한 경과 시 데이터베이스에서 하드 삭제(Hard-Delete) 처리되며 어떠한 백업본도 남겨두지 않습니다.</p>
@@ -1214,7 +1229,7 @@ export default function Home() {
           initial={motionReduced ? false : { y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={motionReduced ? { duration: 0 } : { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const, delay: 0.1 }}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 h-[68px] max-w-sm w-[calc(100%-2rem)] rounded-[24px] backdrop-blur-3xl bg-surface/85 border border-line px-4 flex justify-between items-center shadow-float"
+          className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-40 h-[68px] max-w-sm w-[calc(100%-2rem)] rounded-[24px] backdrop-blur-3xl bg-surface/85 border border-line px-4 flex justify-between items-center shadow-float"
         >
           {/* 고해실 */}
           <button
