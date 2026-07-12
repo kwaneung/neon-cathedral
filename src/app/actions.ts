@@ -10,6 +10,9 @@ import {
   getPendingReplies,
   markReplyAsRead,
   getUnreadReplyCount,
+  getGlassThreshold,
+  unarchiveConfession,
+  DEFAULT_GLASS_THRESHOLD,
   Confession, 
   Reply,
   PendingReply,
@@ -183,11 +186,12 @@ export async function getUnreadReplyCountAction(): Promise<number> {
 // 5. 스테인드글라스 박제 목록 가져오기 (Supabase 조회 연동)
 export async function getStainedGlassAction(): Promise<Confession[]> {
   try {
-    // Supabase 쿼리: is_archived가 true인 박제된 글들만 최신순 조회
+    // is_archived + opted_out=false (옵트아웃 시 is_archived=false가 되지만 방어적으로 제외)
     const { data, error } = await supabase
       .from('confessions')
       .select('*')
       .eq('is_archived', true)
+      .eq('opted_out', false)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -205,4 +209,41 @@ export async function getStainedGlassAction(): Promise<Confession[]> {
 // 6. 사용자의 현재 익명 세션 정보 가져오기 (헤더/프로필용)
 export async function getCurrentUserSession() {
   return await getOrCreateSession();
+}
+
+/** FR-4.5: 클라이언트 표시용 박제 임계값 */
+export async function getGlassThresholdAction(): Promise<number> {
+  try {
+    return await getGlassThreshold();
+  } catch (error) {
+    console.error('Failed to get glass threshold:', error);
+    return DEFAULT_GLASS_THRESHOLD;
+  }
+}
+
+/**
+ * FR-4.2: 작성자 박제 옵트아웃.
+ * 후속 과제: 박제 시점 능동 알림(편지봉투 등)은 스코프 제외 — 본인 조각 UI로 대체.
+ */
+export async function optOutStainedGlassAction(
+  confessionId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return { success: false, error: '세션이 없습니다. 성당에 다시 입장해 주세요.' };
+    }
+    if (!confessionId) {
+      return { success: false, error: '고해 ID가 필요합니다.' };
+    }
+
+    const result = await unarchiveConfession(confessionId, session.id);
+    if (result.success) {
+      updateTag('confessions');
+    }
+    return result;
+  } catch (error) {
+    console.error('Failed to opt out stained glass:', error);
+    return { success: false, error: '박제 해제 중 오류가 발생했습니다.' };
+  }
 }
