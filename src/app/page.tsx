@@ -15,6 +15,10 @@ import {
   optOutStainedGlassAction,
 } from './actions';
 import { getLofiSynth } from '@/lib/audio';
+import {
+  findUnseenAuthorArchiveIds,
+  markArchiveIdsSeen,
+} from '@/lib/archive-notifications';
 import { Confession, Reply, PendingReply, DEFAULT_GLASS_THRESHOLD } from '@/lib/db';
 import { UserSession } from '@/lib/session';
 import { CandleButton } from '@/components/CandleButton';
@@ -76,6 +80,7 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [arrivalToastVisible, setArrivalToastVisible] = useState(false);
+  const [archiveToastVisible, setArchiveToastVisible] = useState(false);
   const [selectedStainedConfession, setSelectedStainedConfession] = useState<Confession | null>(null);
   const [glassThreshold, setGlassThreshold] = useState(DEFAULT_GLASS_THRESHOLD);
   const [optOutConfirmOpen, setOptOutConfirmOpen] = useState(false);
@@ -98,7 +103,10 @@ export default function Home() {
 
   const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const notifiedReplyIdsRef = useRef<Set<string>>(new Set());
+  const toastedArchiveIdsRef = useRef<Set<string>>(new Set());
+  const pendingArchiveToastIdsRef = useRef<string[]>([]);
   const pendingRepliesRef = useRef<PendingReply[]>([]);
+  const userSessionRef = useRef<UserSession | null>(null);
   const viewRef = useRef(view);
   const closeStainedDialogButtonRef = useRef<HTMLButtonElement | null>(null);
   const audioUnlockHintShownRef = useRef(false);
@@ -122,6 +130,10 @@ export default function Home() {
   }, [pendingReplies]);
 
   useEffect(() => {
+    userSessionRef.current = userSession;
+  }, [userSession]);
+
+  useEffect(() => {
     hydratedViewsRef.current = hydratedViews;
   }, [hydratedViews]);
 
@@ -142,17 +154,53 @@ export default function Home() {
     });
   }, []);
 
+  const acknowledgeAuthorArchives = useCallback((pieces: Confession[], authorId: string) => {
+    const mine = pieces.filter((piece) => piece.authorId === authorId).map((piece) => piece.id);
+    if (mine.length === 0) return;
+    markArchiveIdsSeen(mine);
+    for (const id of mine) toastedArchiveIdsRef.current.add(id);
+    pendingArchiveToastIdsRef.current = [];
+    setArchiveToastVisible(false);
+  }, []);
+
+  /** 기존 폴링/뷰 로드로 받은 벽화 데이터에서 미확인 본인 박제를 감지 (신규 폴링 없음) */
+  const detectAuthorArchiveToast = useCallback((pieces: Confession[], authorId: string | null | undefined) => {
+    if (!authorId) return;
+    if (viewRef.current === 'STAINED_GLASS') {
+      acknowledgeAuthorArchives(pieces, authorId);
+      return;
+    }
+    const unseen = findUnseenAuthorArchiveIds(pieces, authorId);
+    if (unseen.length === 0) return;
+    const fresh = unseen.filter((id) => !toastedArchiveIdsRef.current.has(id));
+    if (fresh.length === 0) return;
+    for (const id of fresh) toastedArchiveIdsRef.current.add(id);
+    pendingArchiveToastIdsRef.current = unseen;
+    setArchiveToastVisible(true);
+  }, [acknowledgeAuthorArchives]);
+
+  const handleArchiveToastConfirm = useCallback(() => {
+    const session = userSessionRef.current;
+    if (session) {
+      markArchiveIdsSeen(pendingArchiveToastIdsRef.current);
+    }
+    pendingArchiveToastIdsRef.current = [];
+    setArchiveToastVisible(false);
+    setView('STAINED_GLASS');
+  }, []);
+
   // 1. 유저 세션 및 설정 로드
   useEffect(() => {
     async function initSession() {
       try {
         const session = await getCurrentUserSession();
         setUserSession(session);
-        const [pending, arrived, unread, threshold] = await Promise.all([
+        const [pending, arrived, unread, threshold, archives] = await Promise.all([
           getPendingRepliesAction(),
           getUserRepliesAction(),
           getUnreadReplyCountAction(),
           getGlassThresholdAction(),
+          getStainedGlassAction(),
         ]);
         for (const reply of arrived) {
           if (!reply.isRead) notifiedReplyIdsRef.current.add(reply.id);
@@ -162,6 +210,7 @@ export default function Home() {
         setUnreadCount(unread);
         setGlassThreshold(threshold);
         markViewHydrated('LETTER_BOX');
+        detectAuthorArchiveToast(archives, session.id);
       } catch (e) {
         console.error('Failed to load session:', e);
       }
@@ -178,7 +227,7 @@ export default function Home() {
     const onMotionChange = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
     mq.addEventListener('change', onMotionChange);
     return () => mq.removeEventListener('change', onMotionChange);
-  }, [markViewHydrated]);
+  }, [markViewHydrated, detectAuthorArchiveToast]);
 
   // 2. 오디오 인스턴스 싱크 맞추기
   useEffect(() => {
@@ -257,6 +306,8 @@ export default function Home() {
         const data = await getStainedGlassAction();
         setStainedGlass(data);
         markViewHydrated('STAINED_GLASS');
+        const session = userSessionRef.current;
+        if (session) acknowledgeAuthorArchives(data, session.id);
       } else if (currentView === 'LETTER_BOX') {
         await refreshLetterState();
       } else {
@@ -274,7 +325,7 @@ export default function Home() {
       if (isCold) setIsLoading(false);
       if (reason === 'manual') setIsRefreshing(false);
     }
-  }, [markViewHydrated, refreshLetterState]);
+  }, [markViewHydrated, refreshLetterState, acknowledgeAuthorArchives]);
 
   const startPolling = useCallback(() => {
     stopPolling();
@@ -291,17 +342,21 @@ export default function Home() {
           const data = await getFeedConfessionsAction();
           setConfessions(data);
           markViewHydrated('CATHEDRAL');
-        } else if (currentView === 'STAINED_GLASS') {
-          const data = await getStainedGlassAction();
-          setStainedGlass(data);
+        }
+
+        // 박제 알림: 기존 폴링 주기에 편승해 벽화 목록을 재검증 (별도 interval 없음)
+        const archives = await getStainedGlassAction();
+        if (currentView === 'STAINED_GLASS') {
+          setStainedGlass(archives);
           markViewHydrated('STAINED_GLASS');
         }
+        detectAuthorArchiveToast(archives, userSessionRef.current?.id);
       } catch (e) {
         // 폴링 실패는 캐시 유지 (무깜빡임)
         console.error('Polling error:', e);
       }
     }, intervalMs);
-  }, [refreshLetterState, markViewHydrated]);
+  }, [refreshLetterState, markViewHydrated, detectAuthorArchiveToast]);
 
   // 3. 뷰 변경·pending 유무에 따라 데이터 로드 및 적응형 폴링
   useEffect(() => {
@@ -322,6 +377,20 @@ export default function Home() {
     const t = window.setTimeout(() => setArrivalToastVisible(false), 4500);
     return () => window.clearTimeout(t);
   }, [arrivalToastVisible]);
+
+  useEffect(() => {
+    if (!archiveToastVisible) return;
+    const t = window.setTimeout(() => setArchiveToastVisible(false), 6000);
+    return () => window.clearTimeout(t);
+  }, [archiveToastVisible]);
+
+  // 벽화 탭 진입 시 본인 박제 조각을 확인 처리
+  useEffect(() => {
+    if (view !== 'STAINED_GLASS') return;
+    const session = userSessionRef.current;
+    if (!session || stainedGlass.length === 0) return;
+    acknowledgeAuthorArchives(stainedGlass, session.id);
+  }, [view, stainedGlass, acknowledgeAuthorArchives]);
 
   useEffect(() => {
     if (!selectedStainedConfession) {
@@ -644,6 +713,20 @@ export default function Home() {
             <Mail className="h-4.5 w-4.5 shrink-0 text-flame" />
             <span>
               성찰의 시간이 끝났습니다. 편지봉투가 도착했어요.
+            </span>
+          </motion.div>
+        )}
+        {archiveToastVisible && (
+          <motion.div
+            role="status"
+            aria-live="polite"
+            {...toastMotion}
+            onClick={handleArchiveToastConfirm}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 max-w-[calc(100vw-2rem)] min-h-11 px-5 py-3 rounded-md backdrop-blur-xl shadow-float text-caption cursor-pointer bg-surface/90 border border-votive/35 shadow-glow-votive text-text-hi"
+          >
+            <Grid className="h-4.5 w-4.5 shrink-0 text-votive" />
+            <span>
+              당신의 고해가 스테인드글라스 벽화에 영원히 새겨졌습니다
             </span>
           </motion.div>
         )}
@@ -1485,7 +1568,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* FR-4.2: 본인 조각에만 옵트아웃 UI. 후속: 박제 시점 능동 알림(편지봉투 등)은 스코프 제외 */}
+              {/* FR-4.2: 본인 조각에만 옵트아웃 UI. 박제 능동 알림은 토스트 → 벽화 탭 동선 */}
               {userSession && selectedStainedConfession.authorId === userSession.id && (
                 <div className="relative z-10 space-y-3 rounded-[18px] border border-line bg-crypt/40 p-4">
                   <p className="text-label font-serif text-text-body leading-relaxed">
