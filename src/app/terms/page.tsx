@@ -46,7 +46,7 @@ export default function TermsPage() {
               <strong className="text-text-hi">소멸</strong>: 피드 노출 기간이 끝난 고해가 서버에서도 영구 삭제되어, 작성자 본인을 포함해 다시 열람할 수 없게 되는 상태입니다.
             </>,
             <>
-              <strong className="text-text-hi">스테인드글라스 벽화(박제)</strong>: 일정 기준(촛불 100개 이상)을 충족한 고해가 소멸하지 않고 벽화 조각으로 영구 보존되는 예외입니다.
+              <strong className="text-text-hi">스테인드글라스 벽화(박제)</strong>: 서비스가 정한 촛불 기준(서비스 화면에 안내되며 운영상 조정될 수 있음)을 충족한 고해가 소멸하지 않고 벽화 조각으로 영구 보존되는 예외입니다.
             </>,
             <>
               <strong className="text-text-hi">익명 세션</strong>: 회원가입 없이 기기 기반 토큰으로 유지되는 “N번째 고해자” 형태의 식별 상태입니다. 프로필·팔로우·DM 등 관계 형성 기능은 제공하지 않습니다.
@@ -113,7 +113,7 @@ export default function TermsPage() {
         <LegalList
           items={[
             <>
-              한 고해가 <strong className="text-text-hi">촛불 100개 이상</strong>을 받으면, 24시간 소멸 대상에서 제외되고 스테인드글라스 벽화 조각으로 <strong className="text-text-hi">영구 박제</strong>될 수 있습니다. (근거: FR-4)
+              한 고해가 <strong className="text-text-hi">서비스가 정한 기준 이상의 촛불</strong>을 받으면, 24시간 소멸 대상에서 제외되고 스테인드글라스 벽화 조각으로 <strong className="text-text-hi">영구 박제</strong>될 수 있습니다. (근거: FR-4)
             </>,
             '박제 시점에는 익명성을 유지한 채 작성자에게 안내를 제공합니다.',
             <>
