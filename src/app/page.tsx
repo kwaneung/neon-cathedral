@@ -723,6 +723,23 @@ export default function Home() {
             >
               성당 안으로 들어가기
             </button>
+
+            <nav
+              aria-label="법적·안전 문서"
+              className="mt-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[11px] text-text-faint"
+            >
+              <a href="/terms" className="hover:text-text-mute transition-colors underline-offset-2 hover:underline">
+                이용약관
+              </a>
+              <span aria-hidden className="text-line-strong">·</span>
+              <a href="/guidelines" className="hover:text-text-mute transition-colors underline-offset-2 hover:underline">
+                커뮤니티 가이드라인
+              </a>
+              <span aria-hidden className="text-line-strong">·</span>
+              <a href="/youth-policy" className="hover:text-text-mute transition-colors underline-offset-2 hover:underline">
+                청소년 보호정책
+              </a>
+            </nav>
           </motion.div>
         )}
 
@@ -1288,6 +1305,32 @@ export default function Home() {
                 <p>• 네온 성당은 회원가입을 지원하지 않으며, 클라이언트 쿠키 토큰은 오직 익명 식별을 위한 용도로만 브라우저 내에 국한되어 보관됩니다.</p>
                 <p>• 태워진 고해 글은 24시간의 노출 기한 경과 시 데이터베이스에서 하드 삭제(Hard-Delete) 처리되며 어떠한 백업본도 남겨두지 않습니다.</p>
                 <p>• 단, 소멸의 순간까지 {glassThreshold}촛불이 지켜져 &apos;스테인드글라스 벽화&apos;로 보존 판정을 받은 흔적은 이 공간에 예술 조각으로 영원히 보존됩니다.</p>
+              </div>
+
+              {/* 법적·안전 문서 */}
+              <div className="p-4 sm:p-6 space-y-3">
+                <span className="block text-sm text-text-hi font-serif font-medium">법적·안전 문서</span>
+                <p className="text-label text-text-mute">법무 검토 전 초안(v0.1)</p>
+                <div className="flex flex-col gap-1">
+                  <a
+                    href="/terms"
+                    className="rounded-[14px] px-3 py-2.5 text-sm text-text-body transition-colors hover:bg-surface-raised hover:text-text-hi"
+                  >
+                    이용약관
+                  </a>
+                  <a
+                    href="/guidelines"
+                    className="rounded-[14px] px-3 py-2.5 text-sm text-text-body transition-colors hover:bg-surface-raised hover:text-text-hi"
+                  >
+                    커뮤니티 가이드라인
+                  </a>
+                  <a
+                    href="/youth-policy"
+                    className="rounded-[14px] px-3 py-2.5 text-sm text-text-body transition-colors hover:bg-surface-raised hover:text-text-hi"
+                  >
+                    청소년 보호정책
+                  </a>
+                </div>
               </div>
 
             </div>
