@@ -33,6 +33,7 @@ export default function RootLayout({
       lang="ko"
       className="h-full antialiased dark"
       style={{ colorScheme: "dark" }}
+      suppressHydrationWarning
     >
       <body className="min-h-dvh bg-nave font-sans text-text-body">
         <script
