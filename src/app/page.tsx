@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { 
   submitConfessionAction, 
   toggleCandleAction, 
@@ -212,6 +212,42 @@ export default function Home() {
     setView('STAINED_GLASS');
   }, []);
 
+  // 문서 복귀 플래시 제거: 하이드레이션 직후·페인트 전에 lastView 복원
+  useLayoutEffect(() => {
+    let savedView: string | null = null;
+    try {
+      savedView = sessionStorage.getItem(LAST_VIEW_STORAGE_KEY);
+    } catch {
+      savedView = null;
+    }
+
+    if (!isRestorableView(savedView)) {
+      document.documentElement.classList.remove('nc-returning');
+      return;
+    }
+
+    try {
+      const synth = getLofiSynth();
+      synth.start();
+      setAudioPlaying(true);
+    } catch (e) {
+      console.error('Audio start failed', e);
+      if (!audioUnlockHintShownRef.current) {
+        audioUnlockHintShownRef.current = true;
+        setSuccessMsg('성당이 고요합니다. 우측 상단의 음향을 직접 켜 주세요.');
+        window.setTimeout(() => setSuccessMsg(null), 4500);
+      }
+    }
+    setView(savedView);
+  }, []);
+
+  // 복원 뷰 커밋 후(또는 ENTRANCE가 아닌 모든 경로) nc-returning 제거 — 잔류 방지
+  useLayoutEffect(() => {
+    if (view !== 'ENTRANCE') {
+      document.documentElement.classList.remove('nc-returning');
+    }
+  }, [view]);
+
   // 1. 유저 세션 및 설정 로드
   useEffect(() => {
     async function initSession() {
@@ -234,31 +270,10 @@ export default function Home() {
         setGlassThreshold(threshold);
         markViewHydrated('LETTER_BOX');
         detectAuthorArchiveToast(archives, session.id);
-
-        // 문서 페이지에서 "/"로 복귀 시: 세션 + lastView가 있으면 ENTRANCE 건너뛰기
-        let savedView: string | null = null;
-        try {
-          savedView = sessionStorage.getItem(LAST_VIEW_STORAGE_KEY);
-        } catch {
-          savedView = null;
-        }
-        if (isRestorableView(savedView)) {
-          try {
-            const synth = getLofiSynth();
-            synth.start();
-            setAudioPlaying(true);
-          } catch (e) {
-            console.error('Audio start failed', e);
-            if (!audioUnlockHintShownRef.current) {
-              audioUnlockHintShownRef.current = true;
-              setSuccessMsg('성당이 고요합니다. 우측 상단의 음향을 직접 켜 주세요.');
-              window.setTimeout(() => setSuccessMsg(null), 4500);
-            }
-          }
-          setView(savedView);
-        }
       } catch (e) {
         console.error('Failed to load session:', e);
+        // 세션 실패 시에도 복귀 클래스가 남지 않도록 방어
+        document.documentElement.classList.remove('nc-returning');
       }
     }
     initSession();
@@ -784,6 +799,7 @@ export default function Home() {
         {/* VIEW 1: 성당 입구 (ENTRANCE) - 극도의 비주얼 고도화 */}
         {view === 'ENTRANCE' && (
           <motion.div 
+            data-nc-entrance
             {...viewMotion}
             className="flex flex-col items-center text-center py-8 px-2 max-w-lg mx-auto"
           >

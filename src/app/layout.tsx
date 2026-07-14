@@ -35,6 +35,11 @@ export default function RootLayout({
       style={{ colorScheme: "dark" }}
     >
       <body className="min-h-dvh bg-nave font-sans text-text-body">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var v=sessionStorage.getItem('nc:lastView');if(v==='CONFESS'||v==='CATHEDRAL'||v==='STAINED_GLASS'||v==='LETTER_BOX'||v==='SETTINGS'){document.documentElement.classList.add('nc-returning');}}catch(e){}})();`,
+          }}
+        />
         {children}
       </body>
     </html>
