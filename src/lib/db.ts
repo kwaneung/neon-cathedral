@@ -171,7 +171,7 @@ export async function cleanExpiredConfessions(): Promise<void> {
 /**
  * FR-4.2: 작성자 박제 옵트아웃.
  * is_archived=false + opted_out=true + expires_at=now → 다음 settle_expired에서 삭제.
- * 후속 과제: 박제 시점 능동 알림(편지봉투 등)은 본 티켓 스코프 제외 — 본인 조각 UI로 대체.
+ * 박제 시점 능동 알림은 클라이언트 localStorage + 토스트로 처리 (스키마 무변경).
  */
 export async function unarchiveConfession(
   confessionId: string,

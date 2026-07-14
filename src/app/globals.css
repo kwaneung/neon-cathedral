@@ -140,6 +140,11 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* 문서 페이지 복귀 시 대문 SSR 플래시 억제 (layout 인라인 스크립트가 html.nc-returning 부착) */
+html.nc-returning [data-nc-entrance] {
+  visibility: hidden;
+}
+
 /* iOS 탭 하이라이트 플래시 제거 */
 button,
 a,

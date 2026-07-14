@@ -228,7 +228,7 @@ export async function getGlassThresholdAction(): Promise<number> {
 
 /**
  * FR-4.2: 작성자 박제 옵트아웃.
- * 후속 과제: 박제 시점 능동 알림(편지봉투 등)은 스코프 제외 — 본인 조각 UI로 대체.
+ * 박제 시점 능동 알림은 클라이언트 localStorage + 토스트로 처리 (스키마 무변경).
  */
 export async function optOutStainedGlassAction(
   confessionId: string

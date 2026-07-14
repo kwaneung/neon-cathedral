@@ -33,8 +33,14 @@ export default function RootLayout({
       lang="ko"
       className="h-full antialiased dark"
       style={{ colorScheme: "dark" }}
+      suppressHydrationWarning
     >
       <body className="min-h-dvh bg-nave font-sans text-text-body">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var v=sessionStorage.getItem('nc:lastView');if(v==='CONFESS'||v==='CATHEDRAL'||v==='STAINED_GLASS'||v==='LETTER_BOX'||v==='SETTINGS'){document.documentElement.classList.add('nc-returning');}}catch(e){}})();`,
+          }}
+        />
         {children}
       </body>
     </html>

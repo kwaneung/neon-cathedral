@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { 
   submitConfessionAction, 
   toggleCandleAction, 
@@ -15,6 +15,10 @@ import {
   optOutStainedGlassAction,
 } from './actions';
 import { getLofiSynth } from '@/lib/audio';
+import {
+  findUnseenAuthorArchiveIds,
+  markArchiveIdsSeen,
+} from '@/lib/archive-notifications';
 import { Confession, Reply, PendingReply, DEFAULT_GLASS_THRESHOLD } from '@/lib/db';
 import { UserSession } from '@/lib/session';
 import { CandleButton } from '@/components/CandleButton';
@@ -43,6 +47,19 @@ import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
 
 type ViewState = 'ENTRANCE' | 'CONFESS' | 'CATHEDRAL' | 'STAINED_GLASS' | 'LETTER_BOX' | 'SETTINGS';
+
+const LAST_VIEW_STORAGE_KEY = 'nc:lastView';
+const RESTORABLE_VIEWS: readonly ViewState[] = [
+  'CONFESS',
+  'CATHEDRAL',
+  'STAINED_GLASS',
+  'LETTER_BOX',
+  'SETTINGS',
+];
+
+function isRestorableView(value: string | null): value is ViewState {
+  return !!value && (RESTORABLE_VIEWS as readonly string[]).includes(value);
+}
 
 export default function Home() {
   const [view, setView] = useState<ViewState>('ENTRANCE');
@@ -76,6 +93,7 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [arrivalToastVisible, setArrivalToastVisible] = useState(false);
+  const [archiveToastVisible, setArchiveToastVisible] = useState(false);
   const [selectedStainedConfession, setSelectedStainedConfession] = useState<Confession | null>(null);
   const [glassThreshold, setGlassThreshold] = useState(DEFAULT_GLASS_THRESHOLD);
   const [optOutConfirmOpen, setOptOutConfirmOpen] = useState(false);
@@ -98,7 +116,10 @@ export default function Home() {
 
   const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const notifiedReplyIdsRef = useRef<Set<string>>(new Set());
+  const toastedArchiveIdsRef = useRef<Set<string>>(new Set());
+  const pendingArchiveToastIdsRef = useRef<string[]>([]);
   const pendingRepliesRef = useRef<PendingReply[]>([]);
+  const userSessionRef = useRef<UserSession | null>(null);
   const viewRef = useRef(view);
   const closeStainedDialogButtonRef = useRef<HTMLButtonElement | null>(null);
   const audioUnlockHintShownRef = useRef(false);
@@ -117,9 +138,23 @@ export default function Home() {
     viewRef.current = view;
   }, [view]);
 
+  // 문서 페이지 왕복 등 재마운트 시 복원용 — ENTRANCE는 저장하지 않음
+  useEffect(() => {
+    if (view === 'ENTRANCE') return;
+    try {
+      sessionStorage.setItem(LAST_VIEW_STORAGE_KEY, view);
+    } catch {
+      // sessionStorage 불가 환경에서는 복원 없이 진행
+    }
+  }, [view]);
+
   useEffect(() => {
     pendingRepliesRef.current = pendingReplies;
   }, [pendingReplies]);
+
+  useEffect(() => {
+    userSessionRef.current = userSession;
+  }, [userSession]);
 
   useEffect(() => {
     hydratedViewsRef.current = hydratedViews;
@@ -142,17 +177,89 @@ export default function Home() {
     });
   }, []);
 
+  const acknowledgeAuthorArchives = useCallback((pieces: Confession[], authorId: string) => {
+    const mine = pieces.filter((piece) => piece.authorId === authorId).map((piece) => piece.id);
+    if (mine.length === 0) return;
+    markArchiveIdsSeen(mine);
+    for (const id of mine) toastedArchiveIdsRef.current.add(id);
+    pendingArchiveToastIdsRef.current = [];
+    setArchiveToastVisible(false);
+  }, []);
+
+  /** 기존 폴링/뷰 로드로 받은 벽화 데이터에서 미확인 본인 박제를 감지 (신규 폴링 없음) */
+  const detectAuthorArchiveToast = useCallback((pieces: Confession[], authorId: string | null | undefined) => {
+    if (!authorId) return;
+    if (viewRef.current === 'STAINED_GLASS') {
+      acknowledgeAuthorArchives(pieces, authorId);
+      return;
+    }
+    const unseen = findUnseenAuthorArchiveIds(pieces, authorId);
+    if (unseen.length === 0) return;
+    const fresh = unseen.filter((id) => !toastedArchiveIdsRef.current.has(id));
+    if (fresh.length === 0) return;
+    for (const id of fresh) toastedArchiveIdsRef.current.add(id);
+    pendingArchiveToastIdsRef.current = unseen;
+    setArchiveToastVisible(true);
+  }, [acknowledgeAuthorArchives]);
+
+  const handleArchiveToastConfirm = useCallback(() => {
+    const session = userSessionRef.current;
+    if (session) {
+      markArchiveIdsSeen(pendingArchiveToastIdsRef.current);
+    }
+    pendingArchiveToastIdsRef.current = [];
+    setArchiveToastVisible(false);
+    setView('STAINED_GLASS');
+  }, []);
+
+  // 문서 복귀 플래시 제거: 하이드레이션 직후·페인트 전에 lastView 복원
+  useLayoutEffect(() => {
+    let savedView: string | null = null;
+    try {
+      savedView = sessionStorage.getItem(LAST_VIEW_STORAGE_KEY);
+    } catch {
+      savedView = null;
+    }
+
+    if (!isRestorableView(savedView)) {
+      document.documentElement.classList.remove('nc-returning');
+      return;
+    }
+
+    try {
+      const synth = getLofiSynth();
+      synth.start();
+      setAudioPlaying(true);
+    } catch (e) {
+      console.error('Audio start failed', e);
+      if (!audioUnlockHintShownRef.current) {
+        audioUnlockHintShownRef.current = true;
+        setSuccessMsg('성당이 고요합니다. 우측 상단의 음향을 직접 켜 주세요.');
+        window.setTimeout(() => setSuccessMsg(null), 4500);
+      }
+    }
+    setView(savedView);
+  }, []);
+
+  // 복원 뷰 커밋 후(또는 ENTRANCE가 아닌 모든 경로) nc-returning 제거 — 잔류 방지
+  useLayoutEffect(() => {
+    if (view !== 'ENTRANCE') {
+      document.documentElement.classList.remove('nc-returning');
+    }
+  }, [view]);
+
   // 1. 유저 세션 및 설정 로드
   useEffect(() => {
     async function initSession() {
       try {
         const session = await getCurrentUserSession();
         setUserSession(session);
-        const [pending, arrived, unread, threshold] = await Promise.all([
+        const [pending, arrived, unread, threshold, archives] = await Promise.all([
           getPendingRepliesAction(),
           getUserRepliesAction(),
           getUnreadReplyCountAction(),
           getGlassThresholdAction(),
+          getStainedGlassAction(),
         ]);
         for (const reply of arrived) {
           if (!reply.isRead) notifiedReplyIdsRef.current.add(reply.id);
@@ -162,8 +269,11 @@ export default function Home() {
         setUnreadCount(unread);
         setGlassThreshold(threshold);
         markViewHydrated('LETTER_BOX');
+        detectAuthorArchiveToast(archives, session.id);
       } catch (e) {
         console.error('Failed to load session:', e);
+        // 세션 실패 시에도 복귀 클래스가 남지 않도록 방어
+        document.documentElement.classList.remove('nc-returning');
       }
     }
     initSession();
@@ -178,7 +288,7 @@ export default function Home() {
     const onMotionChange = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
     mq.addEventListener('change', onMotionChange);
     return () => mq.removeEventListener('change', onMotionChange);
-  }, [markViewHydrated]);
+  }, [markViewHydrated, detectAuthorArchiveToast]);
 
   // 2. 오디오 인스턴스 싱크 맞추기
   useEffect(() => {
@@ -257,6 +367,8 @@ export default function Home() {
         const data = await getStainedGlassAction();
         setStainedGlass(data);
         markViewHydrated('STAINED_GLASS');
+        const session = userSessionRef.current;
+        if (session) acknowledgeAuthorArchives(data, session.id);
       } else if (currentView === 'LETTER_BOX') {
         await refreshLetterState();
       } else {
@@ -274,7 +386,7 @@ export default function Home() {
       if (isCold) setIsLoading(false);
       if (reason === 'manual') setIsRefreshing(false);
     }
-  }, [markViewHydrated, refreshLetterState]);
+  }, [markViewHydrated, refreshLetterState, acknowledgeAuthorArchives]);
 
   const startPolling = useCallback(() => {
     stopPolling();
@@ -291,17 +403,21 @@ export default function Home() {
           const data = await getFeedConfessionsAction();
           setConfessions(data);
           markViewHydrated('CATHEDRAL');
-        } else if (currentView === 'STAINED_GLASS') {
-          const data = await getStainedGlassAction();
-          setStainedGlass(data);
+        }
+
+        // 박제 알림: 기존 폴링 주기에 편승해 벽화 목록을 재검증 (별도 interval 없음)
+        const archives = await getStainedGlassAction();
+        if (currentView === 'STAINED_GLASS') {
+          setStainedGlass(archives);
           markViewHydrated('STAINED_GLASS');
         }
+        detectAuthorArchiveToast(archives, userSessionRef.current?.id);
       } catch (e) {
         // 폴링 실패는 캐시 유지 (무깜빡임)
         console.error('Polling error:', e);
       }
     }, intervalMs);
-  }, [refreshLetterState, markViewHydrated]);
+  }, [refreshLetterState, markViewHydrated, detectAuthorArchiveToast]);
 
   // 3. 뷰 변경·pending 유무에 따라 데이터 로드 및 적응형 폴링
   useEffect(() => {
@@ -322,6 +438,20 @@ export default function Home() {
     const t = window.setTimeout(() => setArrivalToastVisible(false), 4500);
     return () => window.clearTimeout(t);
   }, [arrivalToastVisible]);
+
+  useEffect(() => {
+    if (!archiveToastVisible) return;
+    const t = window.setTimeout(() => setArchiveToastVisible(false), 6000);
+    return () => window.clearTimeout(t);
+  }, [archiveToastVisible]);
+
+  // 벽화 탭 진입 시 본인 박제 조각을 확인 처리
+  useEffect(() => {
+    if (view !== 'STAINED_GLASS') return;
+    const session = userSessionRef.current;
+    if (!session || stainedGlass.length === 0) return;
+    acknowledgeAuthorArchives(stainedGlass, session.id);
+  }, [view, stainedGlass, acknowledgeAuthorArchives]);
 
   useEffect(() => {
     if (!selectedStainedConfession) {
@@ -647,6 +777,20 @@ export default function Home() {
             </span>
           </motion.div>
         )}
+        {archiveToastVisible && (
+          <motion.div
+            role="status"
+            aria-live="polite"
+            {...toastMotion}
+            onClick={handleArchiveToastConfirm}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 max-w-[calc(100vw-2rem)] min-h-11 px-5 py-3 rounded-md backdrop-blur-xl shadow-float text-caption cursor-pointer bg-surface/90 border border-votive/35 shadow-glow-votive text-text-hi"
+          >
+            <Grid className="h-4.5 w-4.5 shrink-0 text-votive" />
+            <span>
+              당신의 고해가 스테인드글라스 벽화에 영원히 새겨졌습니다
+            </span>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* 메인 프레임 */}
@@ -655,6 +799,7 @@ export default function Home() {
         {/* VIEW 1: 성당 입구 (ENTRANCE) - 극도의 비주얼 고도화 */}
         {view === 'ENTRANCE' && (
           <motion.div 
+            data-nc-entrance
             {...viewMotion}
             className="flex flex-col items-center text-center py-8 px-2 max-w-lg mx-auto"
           >
@@ -723,6 +868,23 @@ export default function Home() {
             >
               성당 안으로 들어가기
             </button>
+
+            <nav
+              aria-label="법적·안전 문서"
+              className="mt-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[11px] text-text-faint"
+            >
+              <a href="/terms" className="hover:text-text-mute transition-colors underline-offset-2 hover:underline">
+                이용약관
+              </a>
+              <span aria-hidden className="text-line-strong">·</span>
+              <a href="/guidelines" className="hover:text-text-mute transition-colors underline-offset-2 hover:underline">
+                커뮤니티 가이드라인
+              </a>
+              <span aria-hidden className="text-line-strong">·</span>
+              <a href="/youth-policy" className="hover:text-text-mute transition-colors underline-offset-2 hover:underline">
+                청소년 보호정책
+              </a>
+            </nav>
           </motion.div>
         )}
 
@@ -1290,6 +1452,32 @@ export default function Home() {
                 <p>• 단, 소멸의 순간까지 {glassThreshold}촛불이 지켜져 &apos;스테인드글라스 벽화&apos;로 보존 판정을 받은 흔적은 이 공간에 예술 조각으로 영원히 보존됩니다.</p>
               </div>
 
+              {/* 법적·안전 문서 */}
+              <div className="p-4 sm:p-6 space-y-3">
+                <span className="block text-sm text-text-hi font-serif font-medium">법적·안전 문서</span>
+                <p className="text-label text-text-mute">법무 검토 전 초안(v0.1)</p>
+                <div className="flex flex-col gap-1">
+                  <a
+                    href="/terms"
+                    className="rounded-[14px] px-3 py-2.5 text-sm text-text-body transition-colors hover:bg-surface-raised hover:text-text-hi"
+                  >
+                    이용약관
+                  </a>
+                  <a
+                    href="/guidelines"
+                    className="rounded-[14px] px-3 py-2.5 text-sm text-text-body transition-colors hover:bg-surface-raised hover:text-text-hi"
+                  >
+                    커뮤니티 가이드라인
+                  </a>
+                  <a
+                    href="/youth-policy"
+                    className="rounded-[14px] px-3 py-2.5 text-sm text-text-body transition-colors hover:bg-surface-raised hover:text-text-hi"
+                  >
+                    청소년 보호정책
+                  </a>
+                </div>
+              </div>
+
             </div>
           </motion.div>
         )}
@@ -1442,7 +1630,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* FR-4.2: 본인 조각에만 옵트아웃 UI. 후속: 박제 시점 능동 알림(편지봉투 등)은 스코프 제외 */}
+              {/* FR-4.2: 본인 조각에만 옵트아웃 UI. 박제 능동 알림은 토스트 → 벽화 탭 동선 */}
               {userSession && selectedStainedConfession.authorId === userSession.id && (
                 <div className="relative z-10 space-y-3 rounded-[18px] border border-line bg-crypt/40 p-4">
                   <p className="text-label font-serif text-text-body leading-relaxed">
