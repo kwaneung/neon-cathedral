@@ -48,6 +48,19 @@ import Image from 'next/image';
 
 type ViewState = 'ENTRANCE' | 'CONFESS' | 'CATHEDRAL' | 'STAINED_GLASS' | 'LETTER_BOX' | 'SETTINGS';
 
+const LAST_VIEW_STORAGE_KEY = 'nc:lastView';
+const RESTORABLE_VIEWS: readonly ViewState[] = [
+  'CONFESS',
+  'CATHEDRAL',
+  'STAINED_GLASS',
+  'LETTER_BOX',
+  'SETTINGS',
+];
+
+function isRestorableView(value: string | null): value is ViewState {
+  return !!value && (RESTORABLE_VIEWS as readonly string[]).includes(value);
+}
+
 export default function Home() {
   const [view, setView] = useState<ViewState>('ENTRANCE');
   const [userSession, setUserSession] = useState<UserSession | null>(null);
@@ -123,6 +136,16 @@ export default function Home() {
 
   useEffect(() => {
     viewRef.current = view;
+  }, [view]);
+
+  // 문서 페이지 왕복 등 재마운트 시 복원용 — ENTRANCE는 저장하지 않음
+  useEffect(() => {
+    if (view === 'ENTRANCE') return;
+    try {
+      sessionStorage.setItem(LAST_VIEW_STORAGE_KEY, view);
+    } catch {
+      // sessionStorage 불가 환경에서는 복원 없이 진행
+    }
   }, [view]);
 
   useEffect(() => {
@@ -211,6 +234,29 @@ export default function Home() {
         setGlassThreshold(threshold);
         markViewHydrated('LETTER_BOX');
         detectAuthorArchiveToast(archives, session.id);
+
+        // 문서 페이지에서 "/"로 복귀 시: 세션 + lastView가 있으면 ENTRANCE 건너뛰기
+        let savedView: string | null = null;
+        try {
+          savedView = sessionStorage.getItem(LAST_VIEW_STORAGE_KEY);
+        } catch {
+          savedView = null;
+        }
+        if (isRestorableView(savedView)) {
+          try {
+            const synth = getLofiSynth();
+            synth.start();
+            setAudioPlaying(true);
+          } catch (e) {
+            console.error('Audio start failed', e);
+            if (!audioUnlockHintShownRef.current) {
+              audioUnlockHintShownRef.current = true;
+              setSuccessMsg('성당이 고요합니다. 우측 상단의 음향을 직접 켜 주세요.');
+              window.setTimeout(() => setSuccessMsg(null), 4500);
+            }
+          }
+          setView(savedView);
+        }
       } catch (e) {
         console.error('Failed to load session:', e);
       }
